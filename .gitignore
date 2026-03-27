@@ -1,0 +1,206 @@
+# ============================================
+# Prompt Editor - Git Ignore File
+# ============================================
+
+# --------------------------------------------
+# Build Outputs
+# --------------------------------------------
+/build/
+/dist/
+/out/
+
+# --------------------------------------------
+# Rust (core/)
+# --------------------------------------------
+# Compiled files
+*.rs.bk
+*.rlib
+*.rmeta
+
+# Cargo
+core/target/
+core/Cargo.lock
+
+# FFI generated files
+core/include/*.h
+!core/include/.gitkeep
+
+# --------------------------------------------
+# Node.js / TypeScript (editor/)
+# --------------------------------------------
+# Dependencies
+editor/node_modules/
+node_modules/
+
+# Build outputs
+editor/dist/
+*.tsbuildinfo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Coverage
+editor/coverage/
+
+# --------------------------------------------
+# Swift / macOS (macos/)
+# --------------------------------------------
+# Xcode
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcworkspace/contents.xcworkspacedata
+DerivedData/
+.build/
+
+# Swift Package Manager
+.swiftpm/
+Package.resolved
+
+# macOS specific
+macos/.build/
+macos/DerivedData/
+
+# --------------------------------------------
+# Windows (windows/)
+# --------------------------------------------
+# Visual Studio
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rust Windows builds
+windows/target/
+windows/Cargo.lock
+
+# Tauri
+windows/src-tauri/target/
+windows/src-tauri/Cargo.lock
+windows/src-tauri/gen/
+
+# --------------------------------------------
+# Linux (linux/)
+# --------------------------------------------
+linux/target/
+linux/Cargo.lock
+
+# --------------------------------------------
+# IDE / Editors
+# --------------------------------------------
+# VSCode
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# JetBrains
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Vim
+*.swp
+*.swo
+*~
+.vim/
+
+# Emacs
+*~
+.#*
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# --------------------------------------------
+# OS Generated Files
+# --------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+.directory
+.Trash-*
+
+# --------------------------------------------
+# Temporary Files
+# --------------------------------------------
+*.tmp
+*.temp
+*.log
+*.bak
+*.backup
+*.cache
+
+# --------------------------------------------
+# Test Files
+# --------------------------------------------
+*.test
+*.spec
+
+# --------------------------------------------
+# Environment Files
+# --------------------------------------------
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+
+# --------------------------------------------
+# Lock files (keep package-lock.json for reproducibility)
+# --------------------------------------------
+# yarn.lock
+# pnpm-lock.yaml
+
+# --------------------------------------------
+# Documentation Build
+# --------------------------------------------
+/site/
+/docs/_build/
+
+# --------------------------------------------
+# Misc
+# --------------------------------------------
+*.pid
+*.seed
+*.pid.lock
+.eslintcache
+.stylelintcache
+
+# --------------------------------------------
+# Project Specific
+# --------------------------------------------
+# Local development config
+.local/
+
+# Claude Code specific
+.claude/
+
+# Debug builds
+debug/
+release/
+
+# Core library artifacts
+*.a
+*.so
+*.dll
+*.dylib

@@ -1,0 +1,5 @@
+module PromptEditorCore {
+    header "prompt_editor.h"
+    link "prompt_editor_core"
+    export *
+}

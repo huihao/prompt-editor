@@ -1,0 +1,31 @@
+[package]
+name = "prompt-editor-linux"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+gtk4 = { version = "0.8", features = ["v4_8"] }
+webkit6 = { version = "0.4", package = "webkit6" }
+glib = "0.19"
+gio = "0.19"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+libc = "0.2"
+
+# For X11 global shortcuts
+x11rb = { version = "0.13", features = ["xkb"], optional = true }
+
+# For Wayland (TODO)
+wayland-client = { version = "0.31", optional = true }
+
+# Clipboard
+cli-clipboard = "0.4"
+
+[features]
+default = ["x11"]
+x11 = ["dep:x11rb"]
+wayland = ["dep:wayland-client"]
+
+[[bin]]
+name = "prompt-editor"
+path = "src/main.rs"
