@@ -35,6 +35,7 @@ export {
 export {
   parseVariables,
   extractUniqueVariableNames,
+  extractVariableDefinitions,
   parseDefaultValue,
   syncVariables,
   formatVariableName,
@@ -45,6 +46,7 @@ export {
   getVariableStats,
   replaceVariables,
   suggestVariableDefinition,
+  variableToPlaceholder,
 } from './template-parser';
 
 // 模板渲染器
@@ -102,3 +104,36 @@ export {
   openTemplateManager,
   closeTemplateManager,
 } from './template-manager-ui';
+
+// 模板编辑器
+export {
+  createTemplateEditor,
+  templateEditorExtensions,
+  extractTemplateVariables,
+  type TemplateEditorConfig,
+} from './template-editor';
+
+// 内联模板编辑器
+export {
+  createInlineTemplateEditor,
+} from './inline-template-editor';
+
+// 模板表单对话框
+export {
+  createTemplateFormDialog,
+  openTemplateFormDialog,
+} from './template-form-dialog';
+
+// 模板编辑模式
+export {
+  templateEditMode,
+  isTemplateEditMode,
+  setTemplateEditMode,
+  fillTemplateAndExit,
+  getTemplateValues,
+  getTemplateVariables,
+  getFilledContent,
+  toggleTemplateEditMode,
+  updateTemplateValues,
+  resetTemplateValues,
+} from '../template-edit-mode';

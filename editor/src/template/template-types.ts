@@ -5,7 +5,7 @@
  */
 
 /** 变量输入类型 */
-export type VariableType = 'text' | 'textarea' | 'select' | 'multiselect' | 'number';
+export type VariableType = 'text' | 'textarea' | 'select' | 'multiselect' | 'number' | 'checkbox' | 'radio';
 
 /** 数据源项 */
 export interface DataSourceItem {
@@ -51,7 +51,7 @@ export interface TemplateVariable {
   /** 占位提示 */
   placeholder?: string;
   /** 默认值 */
-  defaultValue?: string | string[] | number;
+  defaultValue?: string | string[] | number | boolean;
   /** 是否必填 */
   required?: boolean;
   /** 关联的数据源ID（用于select/multiselect） */
@@ -101,7 +101,7 @@ export interface TemplateCategory {
 }
 
 /** 模板填充值 */
-export type TemplateValues = Record<string, string | string[] | number>;
+export type TemplateValues = Record<string, string | string[] | number | boolean>;
 
 /** 解析后的变量（从模板内容中提取） */
 export interface ParsedVariable {
@@ -170,9 +170,9 @@ export const DEFAULT_TEMPLATES: PromptTemplate[] = [
     content: `请对当前代码进行全面审查，关注以下方面：
 
 **审查重点：**
-{{focus_areas}}
+{{focus:multiselect=代码质量,潜在Bug,安全性,性能,可读性,最佳实践,错误处理,边界情况 = 代码质量,潜在Bug,最佳实践#Focus Areas}}
 
-**审查风格：** {{style}}
+**审查风格：** {{style:select=严格,温和,教育性 = 温和#Review Style}}
 
 请提供：
 1. 代码质量总体评估
@@ -182,26 +182,7 @@ export const DEFAULT_TEMPLATES: PromptTemplate[] = [
 5. 具体的改进建议（如有）
 
 请以建设性和教育性的方式提供反馈。`,
-    variables: [
-      {
-        id: 'focus_areas',
-        name: '审查重点',
-        type: 'multiselect',
-        label: 'Focus Areas',
-        options: ['代码质量', '潜在Bug', '安全性', '性能', '可读性', '最佳实践', '错误处理', '边界情况'],
-        defaultValue: ['代码质量', '潜在Bug', '最佳实践'],
-        order: 1,
-      },
-      {
-        id: 'style',
-        name: '审查风格',
-        type: 'select',
-        label: 'Review Style',
-        options: ['严格', '温和', '教育性'],
-        defaultValue: '温和',
-        order: 2,
-      },
-    ],
+    variables: [],
     tags: ['code', 'review'],
     isBuiltin: true,
     createdAt: Date.now(),
@@ -214,7 +195,7 @@ export const DEFAULT_TEMPLATES: PromptTemplate[] = [
     category: 'code',
     content: `请详细解释当前代码的功能和工作原理。
 
-**解释详细程度：** {{detail_level}}
+**解释详细程度：** {{detail:select=简要概述,标准解释,深入详细 = 标准解释#Detail Level}}
 
 请包含以下内容：
 1. 代码的整体功能和目的
@@ -224,29 +205,8 @@ export const DEFAULT_TEMPLATES: PromptTemplate[] = [
 5. 数据流和控制流说明
 6. 重要的边界情况和注意事项
 
-{{#if include_examples}}
-7. 使用示例或场景说明
-{{/if}}`,
-    variables: [
-      {
-        id: 'detail_level',
-        name: '详细程度',
-        type: 'select',
-        label: 'Detail Level',
-        options: ['简要概述', '标准解释', '深入详细'],
-        defaultValue: '标准解释',
-        order: 1,
-      },
-      {
-        id: 'include_examples',
-        name: '包含示例',
-        type: 'select',
-        label: 'Include Examples',
-        options: ['是', '否'],
-        defaultValue: '是',
-        order: 2,
-      },
-    ],
+7. 使用示例或场景说明`,
+    variables: [],
     tags: ['explain', 'code'],
     isBuiltin: true,
     createdAt: Date.now(),
@@ -260,37 +220,18 @@ export const DEFAULT_TEMPLATES: PromptTemplate[] = [
     content: `请对当前代码进行重构，以提高其质量和可维护性。
 
 **重构目标：**
-{{goals}}
+{{goals:multiselect=提高可读性,降低复杂度,提高性能,增强可测试性,改进命名,减少重复代码,优化架构 = 提高可读性,降低复杂度#Goals}}
 
 **约束条件：**
 - 保持原有功能不变
-- {{constraints}}
+- {{constraints = 遵循语言最佳实践}}
 
 请提供：
 1. 重构后的代码
 2. 重构的具体改动说明
 3. 改进的理由
 4. 可能存在的风险或需要注意的地方`,
-    variables: [
-      {
-        id: 'goals',
-        name: '重构目标',
-        type: 'multiselect',
-        label: 'Refactoring Goals',
-        options: ['提高可读性', '降低复杂度', '提高性能', '增强可测试性', '改进命名', '减少重复代码', '优化架构'],
-        defaultValue: ['提高可读性', '降低复杂度'],
-        order: 1,
-      },
-      {
-        id: 'constraints',
-        name: '额外约束',
-        type: 'text',
-        label: 'Additional Constraints',
-        placeholder: '如：保持API兼容、使用特定模式',
-        defaultValue: '遵循语言最佳实践',
-        order: 2,
-      },
-    ],
+    variables: [],
     tags: ['refactor', 'improve'],
     isBuiltin: true,
     createdAt: Date.now(),
@@ -303,14 +244,14 @@ export const DEFAULT_TEMPLATES: PromptTemplate[] = [
     category: 'test',
     content: `请为当前代码编写全面的测试用例。
 
-**测试类型：** {{test_type}}
-**测试框架：** {{framework}}
+**测试类型：** {{test_type:select=单元测试,集成测试,两者都包含 = 单元测试#Test Type}}
+**测试框架：** {{framework#Testing Framework}}
 
 请包含：
 1. 测试用例代码
 2. 测试覆盖的场景：
    - 正常路径（Happy Path）
-   - {{edge_cases}}
+   - {{edge_cases:multiselect=空值/空输入,边界值,极大/极小值,特殊字符,并发访问,资源耗尽 = 空值/空输入,边界值#Edge Cases}}
    - 错误处理
 3. 测试数据准备
 4. 每个测试的断言说明
@@ -319,34 +260,7 @@ export const DEFAULT_TEMPLATES: PromptTemplate[] = [
 - 独立且可重复运行
 - 有清晰的命名和注释
 - 覆盖关键逻辑分支`,
-    variables: [
-      {
-        id: 'test_type',
-        name: '测试类型',
-        type: 'select',
-        label: 'Test Type',
-        options: ['单元测试', '集成测试', '两者都包含'],
-        defaultValue: '单元测试',
-        order: 1,
-      },
-      {
-        id: 'framework',
-        name: '测试框架',
-        type: 'text',
-        label: 'Testing Framework',
-        placeholder: '如：jest, pytest, cargo test, go test',
-        order: 2,
-      },
-      {
-        id: 'edge_cases',
-        name: '边界情况',
-        type: 'multiselect',
-        label: 'Edge Cases to Cover',
-        options: ['空值/空输入', '边界值', '极大/极小值', '特殊字符', '并发访问', '资源耗尽'],
-        defaultValue: ['空值/空输入', '边界值'],
-        order: 3,
-      },
-    ],
+    variables: [],
     tags: ['test', 'testing'],
     isBuiltin: true,
     createdAt: Date.now(),
@@ -359,53 +273,19 @@ export const DEFAULT_TEMPLATES: PromptTemplate[] = [
     category: 'debug',
     content: `我遇到了一个代码问题，请帮助分析和解决。
 
-**问题描述：** {{description}}
+**问题描述：** {{description!:textarea#Problem Description}}
 
 **已知信息：**
-- 错误现象：{{error_symptom}}
-- 期望行为：{{expected_behavior}}
-- 已尝试的解决方案：{{attempted_fixes}}
+- 错误现象：{{error_symptom:textarea#Error Symptom}}
+- 期望行为：{{expected_behavior:textarea#Expected Behavior}}
+- 已尝试的解决方案：{{attempted_fixes:textarea#Attempted Fixes}}
 
 请帮助：
 1. 分析可能的原因
 2. 提供调试思路和检查点
 3. 建议解决方案
 4. 预防措施建议`,
-    variables: [
-      {
-        id: 'description',
-        name: '问题描述',
-        type: 'textarea',
-        label: 'Problem Description',
-        placeholder: '详细描述遇到的问题...',
-        required: true,
-        order: 1,
-      },
-      {
-        id: 'error_symptom',
-        name: '错误现象',
-        type: 'textarea',
-        label: 'Error Symptom',
-        placeholder: '描述具体的错误表现、错误消息等',
-        order: 2,
-      },
-      {
-        id: 'expected_behavior',
-        name: '期望行为',
-        type: 'textarea',
-        label: 'Expected Behavior',
-        placeholder: '描述代码应该产生的结果',
-        order: 3,
-      },
-      {
-        id: 'attempted_fixes',
-        name: '已尝试方案',
-        type: 'textarea',
-        label: 'Attempted Fixes',
-        placeholder: '描述已经尝试过的解决方法',
-        order: 4,
-      },
-    ],
+    variables: [],
     tags: ['debug', 'help'],
     isBuiltin: true,
     createdAt: Date.now(),
@@ -418,9 +298,9 @@ export const DEFAULT_TEMPLATES: PromptTemplate[] = [
     category: 'doc',
     content: `请为当前代码编写清晰的文档和注释。
 
-**文档类型：** {{doc_type}}
-**目标读者：** {{audience}}
-**文档要求：** {{requirements}}
+**文档类型：** {{doc_type:select=API文档注释,行内注释,README说明,完整使用文档 = API文档注释#Documentation Type}}
+**目标读者：** {{audience:select=初学者,中级开发者,专家级开发者,所有水平 = 中级开发者#Target Audience}}
+**文档要求：** {{requirements:multiselect=包含使用示例,说明参数和返回值,说明异常和错误,包含复杂度分析,提供相关链接 = 包含使用示例,说明参数和返回值#Requirements}}
 
 请提供：
 1. 代码文档（函数/类/模块级别的注释）
@@ -428,35 +308,7 @@ export const DEFAULT_TEMPLATES: PromptTemplate[] = [
 3. 使用示例（如适用）
 4. 注意事项和限制
 5. 任何相关的背景知识`,
-    variables: [
-      {
-        id: 'doc_type',
-        name: '文档类型',
-        type: 'select',
-        label: 'Documentation Type',
-        options: ['API文档注释', '行内注释', 'README说明', '完整使用文档'],
-        defaultValue: 'API文档注释',
-        order: 1,
-      },
-      {
-        id: 'audience',
-        name: '目标读者',
-        type: 'select',
-        label: 'Target Audience',
-        options: ['初学者', '中级开发者', '专家级开发者', '所有水平'],
-        defaultValue: '中级开发者',
-        order: 2,
-      },
-      {
-        id: 'requirements',
-        name: '文档要求',
-        type: 'multiselect',
-        label: 'Requirements',
-        options: ['包含使用示例', '说明参数和返回值', '说明异常和错误', '包含复杂度分析', '提供相关链接'],
-        defaultValue: ['包含使用示例', '说明参数和返回值'],
-        order: 3,
-      },
-    ],
+    variables: [],
     tags: ['documentation', 'doc'],
     isBuiltin: true,
     createdAt: Date.now(),
@@ -469,8 +321,8 @@ export const DEFAULT_TEMPLATES: PromptTemplate[] = [
     category: 'refactor',
     content: `请分析并优化当前代码的性能。
 
-**优化目标：** {{optimization_goal}}
-**优先级考虑：** {{priority}}
+**优化目标：** {{goal:select=提高执行速度,减少内存使用,降低延迟,提高吞吐量,减少资源消耗 = 提高执行速度#Optimization Goal}}
+**优先级考虑：** {{priority:multiselect=保持代码可读性,最小化改动范围,向后兼容,可维护性优先,极致性能优先 = 保持代码可读性,最小化改动范围#Priority}}
 
 请提供：
 1. 性能瓶颈分析
@@ -484,26 +336,7 @@ export const DEFAULT_TEMPLATES: PromptTemplate[] = [
 - 内存分配和GC压力
 - I/O 和缓存效率
 - 并发和并行机会`,
-    variables: [
-      {
-        id: 'optimization_goal',
-        name: '优化目标',
-        type: 'select',
-        label: 'Optimization Goal',
-        options: ['提高执行速度', '减少内存使用', '降低延迟', '提高吞吐量', '减少资源消耗'],
-        defaultValue: '提高执行速度',
-        order: 1,
-      },
-      {
-        id: 'priority',
-        name: '优先级',
-        type: 'multiselect',
-        label: 'Priority Considerations',
-        options: ['保持代码可读性', '最小化改动范围', '向后兼容', '可维护性优先', '极致性能优先'],
-        defaultValue: ['保持代码可读性', '最小化改动范围'],
-        order: 2,
-      },
-    ],
+    variables: [],
     tags: ['performance', 'optimize'],
     isBuiltin: true,
     createdAt: Date.now(),
@@ -516,7 +349,7 @@ export const DEFAULT_TEMPLATES: PromptTemplate[] = [
     category: 'review',
     content: `请对当前代码进行安全审查。
 
-**审查范围：** {{scope}}
+**审查范围：** {{scope:multiselect=输入验证,认证授权,数据加密,依赖安全,配置安全,日志安全,API安全,业务逻辑安全 = 输入验证,数据加密,API安全#Review Scope}}
 
 请检查以下安全问题：
 1. 输入验证和注入攻击（SQL注入、命令注入、XSS等）
@@ -532,17 +365,7 @@ export const DEFAULT_TEMPLATES: PromptTemplate[] = [
 - 风险等级评估
 - 修复建议
 - 预防性安全建议`,
-    variables: [
-      {
-        id: 'scope',
-        name: '审查范围',
-        type: 'multiselect',
-        label: 'Review Scope',
-        options: ['输入验证', '认证授权', '数据加密', '依赖安全', '配置安全', '日志安全', 'API安全', '业务逻辑安全'],
-        defaultValue: ['输入验证', '数据加密', 'API安全'],
-        order: 1,
-      },
-    ],
+    variables: [],
     tags: ['security', 'review'],
     isBuiltin: true,
     createdAt: Date.now(),
@@ -555,12 +378,12 @@ export const DEFAULT_TEMPLATES: PromptTemplate[] = [
     category: 'code',
     content: `请根据以下需求生成代码实现。
 
-**需求描述：** {{requirements}}
+**需求描述：** {{requirements!:textarea#Requirements}}
 
 **技术约束：**
-- 语言/框架：{{tech_stack}}
-- 代码风格：{{code_style}}
-- {{additional_constraints}}
+- 语言/框架：{{tech_stack#Tech Stack}}
+- 代码风格：{{style:select=简洁实用,企业级/生产级,教学/详细注释,性能优先,现代/idiomatic = 简洁实用#Code Style}}
+- {{constraints = 考虑边界情况和错误处理}}
 
 请提供：
 1. 完整的实现代码
@@ -568,44 +391,33 @@ export const DEFAULT_TEMPLATES: PromptTemplate[] = [
 3. 使用示例
 4. 测试建议
 5. 可能的扩展点`,
-    variables: [
-      {
-        id: 'requirements',
-        name: '需求描述',
-        type: 'textarea',
-        label: 'Requirements',
-        placeholder: '详细描述需要实现的功能...',
-        required: true,
-        order: 1,
-      },
-      {
-        id: 'tech_stack',
-        name: '技术栈',
-        type: 'text',
-        label: 'Tech Stack',
-        placeholder: '如：React + TypeScript, Rust, Go',
-        order: 2,
-      },
-      {
-        id: 'code_style',
-        name: '代码风格',
-        type: 'select',
-        label: 'Code Style',
-        options: ['简洁实用', '企业级/生产级', '教学/详细注释', '性能优先', '现代/ idiomatic'],
-        defaultValue: '简洁实用',
-        order: 3,
-      },
-      {
-        id: 'additional_constraints',
-        name: '额外约束',
-        type: 'text',
-        label: 'Additional Constraints',
-        placeholder: '如：必须处理错误、需要线程安全',
-        defaultValue: '考虑边界情况和错误处理',
-        order: 4,
-      },
-    ],
+    variables: [],
     tags: ['generate', 'code'],
+    isBuiltin: true,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  },
+  {
+    id: 'builtin-quick-task',
+    name: '⚡ Quick Task',
+    description: '快速任务配置示例（展示 checkbox 和 radio）',
+    category: 'other',
+    content: `请帮我完成以下任务：
+
+**任务类型：** {{task_type:radio=Bug修复,功能开发,代码重构,文档编写 = 功能开发#Task Type}}
+
+**任务描述：** {{description!:textarea#Description}}
+
+**紧急程度：** {{priority:select=低,中,高,紧急 = 中#Priority}}
+
+**附加选项：**
+- 需要测试：{{need_test:checkbox = true#Need Tests}}
+- 需要文档：{{need_docs:checkbox = true#Need Docs}}
+- 需要代码审查：{{need_review:checkbox = false#Need Review}}
+
+请按照以上要求完成任务。`,
+    variables: [],
+    tags: ['example', 'quick'],
     isBuiltin: true,
     createdAt: Date.now(),
     updatedAt: Date.now(),

@@ -22,6 +22,13 @@ import {
 import { showFilePicker } from './file-picker';
 import { fileReferenceManager } from './file-reference';
 import { initTemplateUI, showTemplatePanel, hideTemplatePanel, initTemplateManagerUI } from './template';
+import { 
+  templateEditMode, 
+  isTemplateEditMode, 
+  setTemplateEditMode, 
+  fillTemplateAndExit,
+  getFilledContent,
+} from './template-edit-mode';
 
 const STORAGE_KEY = 'promptEditor:draft';
 
@@ -205,6 +212,16 @@ const state = EditorState.create({
         },
       },
       {
+        key: 'Mod-Shift-m',
+        run: () => {
+          // Toggle template edit mode
+          const isActive = isTemplateEditMode(view.state);
+          setTemplateEditMode(view, !isActive);
+          updateTemplateModeButton();
+          return true;
+        },
+      },
+      {
         key: 'ArrowUp',
         run: (view) => {
           // Only trigger at first line start
@@ -240,6 +257,7 @@ const state = EditorState.create({
     EditorView.lineWrapping,
     autoSave,
     imagePasteHandler(),
+    ...templateEditMode(),
   ],
 });
 
@@ -457,6 +475,46 @@ document.getElementById('btn-save')!.addEventListener('click', () => {
 // Template button
 document.getElementById('btn-templates')!.addEventListener('click', () => {
   showTemplatePanel();
+});
+
+// Template mode button
+const templateModeBtn = document.getElementById('btn-template-mode')!;
+const templateModeIndicator = document.getElementById('template-mode-indicator')!;
+
+function updateTemplateModeButton(): void {
+  const isActive = isTemplateEditMode(view.state);
+  if (isActive) {
+    templateModeBtn.classList.add('active');
+    templateModeBtn.textContent = '🎨 Mode: ON';
+    document.body.classList.add('template-mode-active');
+    templateModeIndicator.classList.add('show');
+  } else {
+    templateModeBtn.classList.remove('active');
+    templateModeBtn.textContent = '🎨 Mode';
+    document.body.classList.remove('template-mode-active');
+    templateModeIndicator.classList.remove('show');
+  }
+}
+
+templateModeBtn.addEventListener('click', () => {
+  const isActive = isTemplateEditMode(view.state);
+  setTemplateEditMode(view, !isActive);
+  updateTemplateModeButton();
+});
+
+// Fill template button (convert placeholders to values)
+document.getElementById('btn-fill-template')?.addEventListener('click', () => {
+  if (isTemplateEditMode(view.state)) {
+    fillTemplateAndExit(view);
+    updateTemplateModeButton();
+    showToast('Template filled');
+  }
+});
+
+// Exit template mode button
+document.getElementById('btn-exit-template-mode')?.addEventListener('click', () => {
+  setTemplateEditMode(view, false);
+  updateTemplateModeButton();
 });
 
 // Initialize template UI

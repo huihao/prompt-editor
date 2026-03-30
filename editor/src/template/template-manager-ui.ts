@@ -2,32 +2,22 @@
  * 模板管理器 UI
  * 
  * 提供完整的模板管理界面：新增、编辑、删除模板
+ * 变量定义完全从模板内容解析，无需手动设置
  */
 
-import type { PromptTemplate, TemplateVariable, VariableType } from './template-types';
-import { BUILTIN_CATEGORIES, generateId, createTemplate } from './template-types';
+import type { PromptTemplate, TemplateVariable } from './template-types';
+import { BUILTIN_CATEGORIES, generateId } from './template-types';
 import { templateManager } from './template-manager';
-import { dataSourceManager } from './data-source-manager';
-import { syncVariables, formatVariableName } from './template-parser';
+import { extractVariableDefinitions } from './template-parser';
 import { renderTemplate, previewTemplate, createDefaultValues } from './template-renderer';
+import { createTemplateEditor } from './template-editor';
+import type { EditorView } from '@codemirror/view';
 
 /** 管理面板状态 */
 interface ManagerState {
   isOpen: boolean;
   editingTemplate: PromptTemplate | null;
   isCreating: boolean;
-}
-
-/** 变量表单编辑状态 */
-interface VariableEditState {
-  id: string;
-  name: string;
-  type: VariableType;
-  label: string;
-  placeholder: string;
-  defaultValue: string;
-  required: boolean;
-  options: string;
 }
 
 /** 模板管理 UI */
@@ -45,7 +35,7 @@ class TemplateManagerUI {
     search?: HTMLInputElement;
   } = {};
 
-  private variableForms: VariableEditState[] = [];
+  private editorView: EditorView | null = null;
 
   /**
    * 初始化
@@ -225,18 +215,8 @@ class TemplateManagerUI {
       name: 'New Template',
       description: '',
       category: 'other',
-      content: '请帮我{{action}}当前代码。',
-      variables: [
-        {
-          id: 'action',
-          name: 'Action',
-          type: 'text',
-          label: 'Action',
-          defaultValue: '审查',
-          required: true,
-          order: 1,
-        },
-      ],
+      content: '请帮我{{action!:select=审查,重构,优化,解释 = 审查}}当前代码。',
+      variables: [],
       tags: [],
       isBuiltin: false,
       createdAt: Date.now(),
@@ -245,7 +225,6 @@ class TemplateManagerUI {
 
     this.state.isCreating = true;
     this.state.editingTemplate = newTemplate;
-    this.variableForms = this.convertVariablesToForms(newTemplate.variables);
     this.renderEditor();
   }
 
@@ -255,7 +234,6 @@ class TemplateManagerUI {
   private editTemplate(template: PromptTemplate): void {
     this.state.isCreating = false;
     this.state.editingTemplate = { ...template };
-    this.variableForms = this.convertVariablesToForms(template.variables);
     this.renderEditor();
   }
 
@@ -330,17 +308,24 @@ class TemplateManagerUI {
         <div class="form-section">
           <h4>Template Content *</h4>
           <div class="form-row">
-            <textarea id="edit-content" rows="10" placeholder="Enter template content. Use {{variableName}} for placeholders.">${this.escapeHtml(template.content)}</textarea>
-            <div class="form-hint">Use {{variableName}} syntax for dynamic placeholders</div>
+            <div id="template-content-editor" class="template-editor-container"></div>
+            <div class="form-hint">
+              Use placeholders like: 
+              <code>{{name}}</code>, 
+              <code>{{name!}}</code> (required), 
+              <code>{{name:textarea}}</code>, 
+              <code>{{name:select=opt1,opt2}}</code>, 
+              <code>{{name=default}}</code>, 
+              <code>{{name#Label}}</code>
+            </div>
           </div>
         </div>
 
         <div class="form-section">
           <h4>Variables</h4>
-          <div id="variables-list" class="variables-list">
-            ${this.renderVariableForms()}
+          <div id="variables-preview" class="variables-preview">
+            <!-- Variables will be auto-detected from content -->
           </div>
-          <button id="btn-add-variable" class="secondary">+ Add Variable</button>
         </div>
 
         <div class="form-section">
@@ -355,118 +340,96 @@ class TemplateManagerUI {
       </div>
     `;
 
-    this.attachEditorEventListeners();
+    this.initCodeMirrorEditor();
+    this.updateVariablesPreview();
     this.updatePreview();
+    this.attachEditorEventListeners();
   }
 
   /**
-   * 渲染变量表单
+   * 初始化 CodeMirror 编辑器
    */
-  private renderVariableForms(): string {
-    if (this.variableForms.length === 0) {
-      return '<div class="no-variables">No variables defined yet. Add variables that are used in the template content.</div>';
+  private initCodeMirrorEditor(): void {
+    const container = document.getElementById('template-content-editor');
+    if (!container) return;
+
+    // 清理旧编辑器
+    if (this.editorView) {
+      this.editorView.destroy();
+      this.editorView = null;
     }
 
-    return this.variableForms
-      .map((v, index) => `
-        <div class="variable-form" data-index="${index}">
-          <div class="variable-header">
-            <span class="variable-title">${this.escapeHtml(v.id)}</span>
-            <button class="btn-remove-variable icon-btn-sm" data-index="${index}" title="Remove">×</button>
-          </div>
-          <div class="variable-fields">
-            <div class="field-row">
-              <label>ID</label>
-              <input type="text" class="var-id" value="${this.escapeHtml(v.id)}" placeholder="variableName" />
-            </div>
-            <div class="field-row">
-              <label>Label</label>
-              <input type="text" class="var-label" value="${this.escapeHtml(v.label)}" placeholder="Display Label" />
-            </div>
-            <div class="field-row">
-              <label>Type</label>
-              <select class="var-type">
-                <option value="text" ${v.type === 'text' ? 'selected' : ''}>Text</option>
-                <option value="textarea" ${v.type === 'textarea' ? 'selected' : ''}>Textarea</option>
-                <option value="select" ${v.type === 'select' ? 'selected' : ''}>Select</option>
-                <option value="multiselect" ${v.type === 'multiselect' ? 'selected' : ''}>Multi-select</option>
-                <option value="number" ${v.type === 'number' ? 'selected' : ''}>Number</option>
-              </select>
-            </div>
-            <div class="field-row">
-              <label>Placeholder</label>
-              <input type="text" class="var-placeholder" value="${this.escapeHtml(v.placeholder)}" placeholder="Placeholder text" />
-            </div>
-            <div class="field-row">
-              <label>Default Value</label>
-              <input type="text" class="var-default" value="${this.escapeHtml(v.defaultValue)}" placeholder="Default value" />
-            </div>
-            <div class="field-row options-row" style="${v.type === 'select' || v.type === 'multiselect' ? '' : 'display: none;'}">
-              <label>Options (comma separated)</label>
-              <input type="text" class="var-options" value="${this.escapeHtml(v.options)}" placeholder="option1, option2, option3" />
-            </div>
-            <div class="field-row checkbox-row">
-              <label class="checkbox-label">
-                <input type="checkbox" class="var-required" ${v.required ? 'checked' : ''} />
-                Required
-              </label>
-            </div>
-          </div>
-        </div>
-      `).join('');
+    const template = this.state.editingTemplate;
+    if (!template) return;
+
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    this.editorView = createTemplateEditor(container, {
+      content: template.content,
+      isDark,
+      onChange: () => {
+        this.updateVariablesPreview();
+        this.updatePreview();
+      },
+    });
+  }
+
+  /**
+   * 更新变量预览（从内容自动解析）
+   */
+  private updateVariablesPreview(): void {
+    const container = document.getElementById('variables-preview');
+    if (!container || !this.editorView) return;
+
+    const content = this.editorView.state.doc.toString();
+    const variables = extractVariableDefinitions(content);
+
+    if (variables.length === 0) {
+      container.innerHTML = '<div class="no-variables">No variables found. Add placeholders like {{name}} in the content.</div>';
+      return;
+    }
+
+    container.innerHTML = variables.map(v => this.renderVariablePreview(v)).join('');
+  }
+
+  /**
+   * 渲染变量预览项
+   */
+  private renderVariablePreview(v: TemplateVariable): string {
+    const typeIcons: Record<string, string> = {
+      text: '📝',
+      textarea: '📄',
+      select: '📋',
+      multiselect: '☑️',
+      number: '🔢',
+    };
+    
+    const typeLabel = v.type === 'text' ? '' : ` (${v.type})`;
+    const requiredBadge = v.required ? '<span class="var-badge required">required</span>' : '';
+    const defaultValue = v.defaultValue !== undefined 
+      ? `<span class="var-default">= ${Array.isArray(v.defaultValue) ? v.defaultValue.join(', ') : v.defaultValue}</span>`
+      : '';
+    const options = v.options && v.options.length > 0
+      ? `<span class="var-options">[${v.options.join(', ')}]</span>`
+      : '';
+
+    return `
+      <div class="variable-preview-item">
+        <span class="var-icon">${typeIcons[v.type] || '📝'}</span>
+        <span class="var-name">{{${v.id}}}</span>
+        <span class="var-label">${this.escapeHtml(v.label)}</span>
+        ${typeLabel}
+        ${requiredBadge}
+        ${defaultValue}
+        ${options}
+      </div>
+    `;
   }
 
   /**
    * 绑定编辑器事件
    */
   private attachEditorEventListeners(): void {
-    // 内容变化时更新变量和预览
-    document.getElementById('edit-content')?.addEventListener('input', () => {
-      this.syncVariablesFromContent();
-    });
-
-    // 添加变量
-    document.getElementById('btn-add-variable')?.addEventListener('click', () => {
-      this.variableForms.push({
-        id: '',
-        name: '',
-        type: 'text',
-        label: '',
-        placeholder: '',
-        defaultValue: '',
-        required: false,
-        options: '',
-      });
-      this.renderVariablesList();
-    });
-
-    // 删除变量
-    document.querySelectorAll('.btn-remove-variable').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        const index = parseInt((e.currentTarget as HTMLElement).dataset.index!);
-        this.variableForms.splice(index, 1);
-        this.renderVariablesList();
-      });
-    });
-
-    // 变量类型变化时显示/隐藏选项
-    document.querySelectorAll('.var-type').forEach((select) => {
-      select.addEventListener('change', (e) => {
-        const type = (e.target as HTMLSelectElement).value;
-        const form = (e.target as HTMLElement).closest('.variable-form') as HTMLElement;
-        const optionsRow = form.querySelector('.options-row') as HTMLElement;
-        if (optionsRow) {
-          optionsRow.style.display = type === 'select' || type === 'multiselect' ? '' : 'none';
-        }
-      });
-    });
-
-    // 变量表单变化时更新
-    document.querySelectorAll('.variable-form input, .variable-form select').forEach((input) => {
-      input.addEventListener('input', () => this.collectVariableForms());
-      input.addEventListener('change', () => this.collectVariableForms());
-    });
-
     // 取消
     document.getElementById('btn-cancel-edit')?.addEventListener('click', () => {
       this.showEmptyState();
@@ -479,104 +442,21 @@ class TemplateManagerUI {
   }
 
   /**
-   * 从内容同步变量
-   */
-  private syncVariablesFromContent(): void {
-    const content = (document.getElementById('edit-content') as HTMLTextAreaElement)?.value || '';
-    const existingVars = this.variableForms.map((v) => ({
-      id: v.id,
-      name: v.name || v.id,
-      type: v.type,
-      label: v.label,
-      placeholder: v.placeholder || undefined,
-      defaultValue: v.defaultValue || undefined,
-      required: v.required,
-      options: v.options ? v.options.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
-    }));
-
-    // 使用 template-parser 的 syncVariables
-    const synced = syncVariables(content, existingVars as any);
-
-    // 更新表单
-    this.variableForms = synced.map((v, index) => ({
-      id: v.id,
-      name: v.name,
-      type: v.type,
-      label: v.label,
-      placeholder: v.placeholder || '',
-      defaultValue: typeof v.defaultValue === 'string' ? v.defaultValue : '',
-      required: v.required || false,
-      options: v.options?.join(', ') || '',
-    }));
-
-    this.renderVariablesList();
-    this.updatePreview();
-  }
-
-  /**
-   * 收集变量表单数据
-   */
-  private collectVariableForms(): void {
-    const forms = document.querySelectorAll('.variable-form');
-    forms.forEach((form, index) => {
-      if (index >= this.variableForms.length) return;
-
-      const v = this.variableForms[index];
-      v.id = (form.querySelector('.var-id') as HTMLInputElement)?.value || '';
-      v.label = (form.querySelector('.var-label') as HTMLInputElement)?.value || '';
-      v.type = (form.querySelector('.var-type') as HTMLSelectElement)?.value as VariableType;
-      v.placeholder = (form.querySelector('.var-placeholder') as HTMLInputElement)?.value || '';
-      v.defaultValue = (form.querySelector('.var-default') as HTMLInputElement)?.value || '';
-      v.required = (form.querySelector('.var-required') as HTMLInputElement)?.checked || false;
-      v.options = (form.querySelector('.var-options') as HTMLInputElement)?.value || '';
-    });
-
-    this.updatePreview();
-  }
-
-  /**
-   * 渲染变量列表
-   */
-  private renderVariablesList(): void {
-    const container = document.getElementById('variables-list');
-    if (container) {
-      container.innerHTML = this.renderVariableForms();
-      // 重新绑定事件
-      document.querySelectorAll('.btn-remove-variable').forEach((btn) => {
-        btn.addEventListener('click', (e) => {
-          const index = parseInt((e.currentTarget as HTMLElement).dataset.index!);
-          this.variableForms.splice(index, 1);
-          this.renderVariablesList();
-        });
-      });
-
-      document.querySelectorAll('.var-type').forEach((select) => {
-        select.addEventListener('change', (e) => {
-          const type = (e.target as HTMLSelectElement).value;
-          const form = (e.target as HTMLElement).closest('.variable-form') as HTMLElement;
-          const optionsRow = form.querySelector('.options-row') as HTMLElement;
-          if (optionsRow) {
-            optionsRow.style.display = type === 'select' || type === 'multiselect' ? '' : 'none';
-          }
-        });
-      });
-
-      document.querySelectorAll('.variable-form input, .variable-form select').forEach((input) => {
-        input.addEventListener('input', () => this.collectVariableForms());
-        input.addEventListener('change', () => this.collectVariableForms());
-      });
-    }
-  }
-
-  /**
    * 更新预览
    */
   private updatePreview(): void {
     const previewEl = document.getElementById('template-preview');
-    if (!previewEl || !this.state.editingTemplate) return;
+    if (!previewEl || !this.editorView) return;
 
-    const template = this.buildTemplateFromForm();
-    const values = createDefaultValues(template.variables);
+    const content = this.editorView.state.doc.toString();
+    const variables = extractVariableDefinitions(content);
+    const template: PromptTemplate = {
+      ...this.state.editingTemplate!,
+      content,
+      variables,
+    };
+    
+    const values = createDefaultValues(variables);
     const preview = previewTemplate(template, values);
 
     previewEl.textContent = preview;
@@ -589,21 +469,10 @@ class TemplateManagerUI {
     const name = (document.getElementById('edit-name') as HTMLInputElement)?.value || 'Untitled';
     const description = (document.getElementById('edit-description') as HTMLInputElement)?.value || '';
     const category = (document.getElementById('edit-category') as HTMLSelectElement)?.value || 'other';
-    const content = (document.getElementById('edit-content') as HTMLTextAreaElement)?.value || '';
-
-    const variables: TemplateVariable[] = this.variableForms
-      .filter((v) => v.id.trim())
-      .map((v, index) => ({
-        id: v.id.trim(),
-        name: v.name || v.id,
-        type: v.type,
-        label: v.label || formatVariableName(v.id),
-        placeholder: v.placeholder || undefined,
-        defaultValue: v.defaultValue || undefined,
-        required: v.required,
-        options: v.options ? v.options.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
-        order: index + 1,
-      }));
+    const content = this.editorView?.state?.doc?.toString() || '';
+    
+    // 从内容自动解析变量
+    const variables = extractVariableDefinitions(content);
 
     return {
       ...this.state.editingTemplate!,
@@ -656,26 +525,16 @@ class TemplateManagerUI {
     this.state.editingTemplate = null;
     this.state.isCreating = false;
 
+    // 清理 CodeMirror 编辑器
+    if (this.editorView) {
+      this.editorView.destroy();
+      this.editorView = null;
+    }
+
     document.getElementById('template-editor-empty')!.style.display = 'block';
     if (this.elements.editor) {
       this.elements.editor.style.display = 'none';
     }
-  }
-
-  /**
-   * 转换变量为表单状态
-   */
-  private convertVariablesToForms(variables: TemplateVariable[]): VariableEditState[] {
-    return variables.map((v) => ({
-      id: v.id,
-      name: v.name,
-      type: v.type,
-      label: v.label,
-      placeholder: v.placeholder || '',
-      defaultValue: typeof v.defaultValue === 'string' ? v.defaultValue : '',
-      required: v.required || false,
-      options: v.options?.join(', ') || '',
-    }));
   }
 
   /**

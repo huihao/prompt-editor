@@ -88,19 +88,21 @@ export function renderField(
       break;
 
     case 'multiselect':
+      const currentValues = Array.isArray(variable.defaultValue) ? variable.defaultValue : variable.defaultValue ? [String(variable.defaultValue)] : [];
+      const multiOptions = variable.options || [];
+      const checkboxesHtml = multiOptions.map(opt => {
+        const checked = currentValues.includes(opt) ? 'checked' : '';
+        return `
+          <label class="checkbox-option">
+            <input type="checkbox" name="${variable.id}" value="${escapeHtml(opt)}" ${checked} ${disabledAttr} />
+            ${escapeHtml(opt)}
+          </label>
+        `;
+      }).join('');
       html = `${labelHtml}
-        <select
-          id="${fieldId}"
-          name="${variable.id}"
-          class="field-multiselect ${className}"
-          ${requiredAttr}
-          ${disabledAttr}
-          multiple
-          size="4"
-        >
-          ${renderSelectOptions(variable.options, variable.defaultValue as string[])}
-        </select>
-        <span class="field-hint">按住 Ctrl/Cmd 选择多项</span>`;
+        <div class="field-multiselect-checkboxes ${className}" ${requiredAttr}>
+          ${checkboxesHtml}
+        </div>`;
       break;
 
     case 'number':
@@ -115,6 +117,41 @@ export function renderField(
           ${requiredAttr}
           ${disabledAttr}
         />`;
+      break;
+
+    case 'checkbox':
+      const checkboxChecked = variable.defaultValue === true || variable.defaultValue === 'true' ? 'checked' : '';
+      html = `<div class="field-checkbox-wrapper ${className}">
+        <label class="field-checkbox-label">
+          <input
+            type="checkbox"
+            id="${fieldId}"
+            name="${variable.id}"
+            class="field-checkbox"
+            ${checkboxChecked}
+            ${disabledAttr}
+          />
+          <span class="checkbox-text">${escapeHtml(variable.label)}</span>
+        </label>
+      </div>`;
+      break;
+
+    case 'radio':
+      const radioOptions = variable.options || [];
+      const radioValue = String(variable.defaultValue || '');
+      const radioButtonsHtml = radioOptions.map(opt => {
+        const checked = radioValue === opt ? 'checked' : '';
+        return `
+          <label class="radio-option">
+            <input type="radio" name="${variable.id}" value="${escapeHtml(opt)}" ${checked} ${disabledAttr} />
+            ${escapeHtml(opt)}
+          </label>
+        `;
+      }).join('');
+      html = `${labelHtml}
+        <div class="field-radio-group ${className}" ${requiredAttr}>
+          ${radioButtonsHtml}
+        </div>`;
       break;
 
     case 'text':
@@ -257,10 +294,19 @@ export function collectFormValues(
 
     switch (variable.type) {
       case 'multiselect':
-        if (element instanceof HTMLSelectElement) {
-          const selectedOptions = Array.from(element.selectedOptions);
-          values[variable.id] = selectedOptions.map(opt => opt.value);
-        }
+        // 收集所有选中的复选框
+        const checkedBoxes = container.querySelectorAll(`input[name="${variable.id}"]:checked`);
+        values[variable.id] = Array.from(checkedBoxes).map(cb => (cb as HTMLInputElement).value);
+        break;
+
+      case 'checkbox':
+        const checkbox = container.querySelector(`input[type="checkbox"][name="${variable.id}"]`) as HTMLInputElement;
+        values[variable.id] = checkbox ? checkbox.checked : false;
+        break;
+
+      case 'radio':
+        const radio = container.querySelector(`input[type="radio"][name="${variable.id}"]:checked`) as HTMLInputElement;
+        values[variable.id] = radio ? radio.value : '';
         break;
 
       case 'number':
@@ -296,7 +342,8 @@ export function validateFormValues(
       const isEmpty =
         value === undefined ||
         value === '' ||
-        (Array.isArray(value) && value.length === 0);
+        (Array.isArray(value) && value.length === 0) ||
+        (variable.type === 'checkbox' && value === false);
 
       if (isEmpty) {
         errors[variable.id] = `${variable.label} 是必填项`;
@@ -346,6 +393,8 @@ export function renderTemplate(
       replacement = ''; // 未填写的变量替换为空
     } else if (Array.isArray(value)) {
       replacement = value.join(', ');
+    } else if (typeof value === 'boolean') {
+      replacement = value ? '是' : '否';
     } else {
       replacement = String(value);
     }
@@ -381,6 +430,8 @@ export function previewTemplate(
       displayValue = `[${variable.name}]`;
     } else if (Array.isArray(value)) {
       displayValue = value.join(', ');
+    } else if (typeof value === 'boolean') {
+      displayValue = value ? '是' : '否';
     } else {
       displayValue = String(value);
     }
@@ -407,6 +458,8 @@ export function getDefaultValue(
   switch (variable.type) {
     case 'multiselect':
       return [];
+    case 'checkbox':
+      return false;
     case 'number':
       return 0;
     default:

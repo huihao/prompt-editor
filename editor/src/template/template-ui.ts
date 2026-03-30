@@ -10,14 +10,9 @@ import { BUILTIN_CATEGORIES } from './template-types';
 import { templateManager } from './template-manager';
 import { dataSourceManager } from './data-source-manager';
 import { templateManagerUI } from './template-manager-ui';
-import {
-  renderForm,
-  collectFormValues,
-  validateFormValues,
-  renderTemplate,
-  previewTemplate,
-  createDefaultValues,
-} from './template-renderer';
+import { renderTemplate } from './template-renderer';
+import { createTemplateFormDialog } from './template-form-dialog';
+import { extractVariableDefinitions, hasVariables } from './template-parser';
 
 /** 模板选择回调 */
 type TemplateSelectCallback = (template: PromptTemplate, content: string) => void;
@@ -47,10 +42,6 @@ class TemplateUI {
     list?: HTMLElement;
     search?: HTMLInputElement;
     categories?: HTMLElement;
-    formDialog?: HTMLElement;
-    formFields?: HTMLElement;
-    formPreview?: HTMLElement;
-    formTitle?: HTMLElement;
   } = {};
 
   private callbacks: {
@@ -60,6 +51,7 @@ class TemplateUI {
 
   private editorView: EditorView | null = null;
   private dataSourceCache: Map<string, DataSource> = new Map();
+  private formDialog: ReturnType<typeof createTemplateFormDialog> | null = null;
 
   /**
    * 初始化 UI
@@ -68,7 +60,6 @@ class TemplateUI {
     this.editorView = editorView || null;
     this.cacheDataSources();
     this.createPanel();
-    this.createFormDialog();
     this.attachEventListeners();
   }
 
@@ -129,51 +120,6 @@ class TemplateUI {
   }
 
   /**
-   * 创建变量填写对话框
-   */
-  private createFormDialog(): void {
-    if (document.getElementById('template-form-dialog')) {
-      this.elements.formDialog = document.getElementById('template-form-dialog') as HTMLElement;
-      this.elements.formFields = document.getElementById('template-form-fields') as HTMLElement;
-      this.elements.formPreview = document.getElementById('template-form-preview') as HTMLElement;
-      this.elements.formTitle = document.getElementById('template-form-title') as HTMLElement;
-      return;
-    }
-
-    const dialog = document.createElement('div');
-    dialog.id = 'template-form-dialog';
-    dialog.className = 'modal';
-    dialog.innerHTML = `
-      <div class="modal-content template-form-content">
-        <div class="modal-header">
-          <h3 id="template-form-title">Fill Template</h3>
-          <button class="modal-close" id="btn-close-template-form">×</button>
-        </div>
-        <div class="modal-body">
-          <div id="template-form-fields" class="template-form-fields">
-            <!-- Form fields will be rendered here -->
-          </div>
-          <div class="template-preview-section">
-            <label>Preview:</label>
-            <pre id="template-form-preview" class="template-preview"></pre>
-          </div>
-        </div>
-        <div class="modal-actions">
-          <button id="btn-cancel-template" class="secondary">Cancel</button>
-          <button id="btn-insert-template" class="primary">Insert</button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(dialog);
-
-    this.elements.formDialog = dialog;
-    this.elements.formFields = dialog.querySelector('#template-form-fields') as HTMLElement;
-    this.elements.formPreview = dialog.querySelector('#template-form-preview') as HTMLElement;
-    this.elements.formTitle = dialog.querySelector('#template-form-title') as HTMLElement;
-  }
-
-  /**
    * 绑定事件监听器
    */
   private attachEventListeners(): void {
@@ -191,31 +137,6 @@ class TemplateUI {
     // 管理模板按钮
     document.getElementById('btn-manage-templates')?.addEventListener('click', () => {
       this.showManagePanel();
-    });
-
-    // 表单对话框按钮
-    document.getElementById('btn-cancel-template')?.addEventListener('click', () => {
-      this.closeFormDialog();
-    });
-
-    document.getElementById('btn-close-template-form')?.addEventListener('click', () => {
-      this.closeFormDialog();
-    });
-
-    document.getElementById('btn-insert-template')?.addEventListener('click', () => {
-      this.insertTemplate();
-    });
-
-    // 表单输入实时更新预览
-    this.elements.formFields?.addEventListener('input', () => {
-      this.updatePreview();
-    });
-
-    // ESC 关闭对话框
-    this.elements.formDialog?.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        this.closeFormDialog();
-      }
     });
 
     // 监听数据源变化
@@ -332,7 +253,10 @@ class TemplateUI {
   private selectTemplate(template: PromptTemplate): void {
     this.state.selectedTemplate = template;
 
-    if (template.variables.length === 0) {
+    // 从模板内容解析变量
+    const variables = extractVariableDefinitions(template.content);
+
+    if (variables.length === 0) {
       // 无变量，直接插入
       const content = renderTemplate(template, {});
       this.insertContent(content);
@@ -347,37 +271,41 @@ class TemplateUI {
    * 显示变量填写对话框
    */
   private showFormDialog(template: PromptTemplate): void {
-    if (!this.elements.formDialog || !this.elements.formFields || !this.elements.formTitle) return;
-
     this.state.isFormOpen = true;
-    this.elements.formTitle.textContent = template.name;
 
-    // 渲染表单
-    const formHtml = renderForm(template.variables, this.dataSourceCache);
-    this.elements.formFields.innerHTML = formHtml;
-
-    // 初始化预览
-    this.updatePreview();
+    // 创建表单对话框
+    this.formDialog = createTemplateFormDialog({
+      template,
+      onSubmit: (values, renderedContent) => {
+        this.insertContent(renderedContent);
+        this.closeFormDialog();
+        this.hidePanel();
+        
+        if (this.callbacks.onSelect) {
+          this.callbacks.onSelect(template, renderedContent);
+        }
+      },
+      onCancel: () => {
+        this.closeFormDialog();
+      },
+    });
 
     // 显示对话框
-    this.elements.formDialog.classList.add('show');
-
-    // 聚焦第一个输入
-    const firstInput = this.elements.formFields.querySelector('input, textarea, select') as HTMLElement;
-    if (firstInput) {
-      setTimeout(() => firstInput.focus(), 100);
-    }
+    this.formDialog.open();
   }
 
   /**
    * 关闭表单对话框
    */
   private closeFormDialog(): void {
-    if (!this.elements.formDialog) return;
-
     this.state.isFormOpen = false;
     this.state.selectedTemplate = null;
-    this.elements.formDialog.classList.remove('show');
+    
+    // 销毁表单对话框
+    if (this.formDialog) {
+      this.formDialog.destroy();
+      this.formDialog = null;
+    }
 
     // 恢复焦点到编辑器
     if (this.editorView) {
@@ -386,52 +314,6 @@ class TemplateUI {
 
     if (this.callbacks.onCancel) {
       this.callbacks.onCancel();
-    }
-  }
-
-  /**
-   * 更新预览
-   */
-  private updatePreview(): void {
-    if (!this.state.selectedTemplate || !this.elements.formFields || !this.elements.formPreview) return;
-
-    const values = collectFormValues(this.elements.formFields, this.state.selectedTemplate.variables);
-    const preview = previewTemplate(this.state.selectedTemplate, values);
-
-    this.elements.formPreview.textContent = preview;
-  }
-
-  /**
-   * 插入模板内容
-   */
-  private insertTemplate(): void {
-    if (!this.state.selectedTemplate || !this.elements.formFields) return;
-
-    const template = this.state.selectedTemplate;
-    const values = collectFormValues(this.elements.formFields, template.variables);
-
-    // 验证
-    const validation = validateFormValues(values, template.variables);
-    if (!validation.valid) {
-      // 显示验证错误
-      const firstErrorField = Object.keys(validation.errors)[0];
-      const fieldElement = this.elements.formFields.querySelector(`[name="${firstErrorField}"]`) as HTMLElement;
-      if (fieldElement) {
-        fieldElement.focus();
-        fieldElement.classList.add('error');
-        setTimeout(() => fieldElement.classList.remove('error'), 3000);
-      }
-      return;
-    }
-
-    const content = renderTemplate(template, values);
-    this.insertContent(content);
-
-    this.closeFormDialog();
-    this.hidePanel();
-
-    if (this.callbacks.onSelect) {
-      this.callbacks.onSelect(template, content);
     }
   }
 
@@ -518,7 +400,7 @@ class TemplateUI {
    */
   destroy(): void {
     this.elements.panel?.remove();
-    this.elements.formDialog?.remove();
+    this.formDialog?.destroy();
     this.elements = {};
   }
 
