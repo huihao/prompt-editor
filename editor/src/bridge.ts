@@ -50,6 +50,16 @@ const AVAILABLE_TARGETS: TargetConfig[] = [
   { id: 'copy', name: 'Copy Only', shortcut: '⌘⇧C' },
 ];
 
+// Detected running agent interface
+export interface DetectedAgent {
+  id: string;
+  name: string;
+  type: 'claude' | 'kimi' | 'codex' | 'cursor' | 'warp' | 'unknown';
+  pid: number;
+  terminalApp?: string;
+  windowTitle?: string;
+}
+
 const TARGET_STORAGE_KEY = 'promptEditor:defaultTarget';
 
 function getDefaultTarget(): SendTarget {
@@ -105,6 +115,9 @@ interface NativeBridge {
   switchWorkspace: () => Promise<boolean>;
   rescanWorkspace: () => Promise<boolean>;
   getRecentWorkspaces: () => Workspace[];
+  // Running agents methods
+  getRunningAgents: () => Promise<DetectedAgent[]>;
+  onAgentsUpdated: ((agents: DetectedAgent[]) => void) | null;
   // Template methods
   showTemplates: () => void;
   hideTemplates: () => void;
@@ -477,6 +490,56 @@ export const bridge: NativeBridge = {
   getRecentWorkspaces() {
     return workspaceManager.getRecentWorkspaces();
   },
+
+  async getRunningAgents(): Promise<DetectedAgent[]> {
+    return new Promise((resolve) => {
+      const isNative = typeof window !== 'undefined' && 
+        (window.webkit?.messageHandlers?.promptEditor || 
+         (window as any).__TAURI__);
+
+      if (!isNative) {
+        // Fallback: return empty array for web mode
+        resolve([]);
+        return;
+      }
+
+      const callbackName = `agentsCallback_${Date.now()}`;
+      (window as any)[callbackName] = (result: string | null, error?: string) => {
+        delete (window as any)[callbackName];
+        if (error || !result) {
+          console.error('Get running agents error:', error);
+          resolve([]);
+        } else {
+          try {
+            const agents: DetectedAgent[] = JSON.parse(result);
+            resolve(agents);
+          } catch (e) {
+            console.error('Failed to parse agents:', e);
+            resolve([]);
+          }
+        }
+      };
+
+      if (window.webkit?.messageHandlers?.promptEditor) {
+        window.webkit.messageHandlers.promptEditor.postMessage({
+          action: 'getRunningAgents',
+          callback: callbackName,
+        });
+      } else if ((window as any).__TAURI__) {
+        // Tauri implementation placeholder
+        resolve([]);
+      }
+
+      setTimeout(() => {
+        if ((window as any)[callbackName]) {
+          delete (window as any)[callbackName];
+          resolve([]);
+        }
+      }, 5000);
+    });
+  },
+
+  onAgentsUpdated: null as ((agents: DetectedAgent[]) => void) | null,
 
   showTemplates() {
     const { showTemplatePanel } = require('./template');

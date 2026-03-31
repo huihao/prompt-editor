@@ -292,12 +292,12 @@ let pendingConvertedContent = '';
 async function showConfirmDialog(content: string) {
   pendingSendContent = content;
   
-  // Populate target select
-  const targets = bridge.getAvailableTargets();
+  // Refresh agent list in confirm dialog
+  await updateAgentSelect();
+  
+  // Set current target
   const currentTarget = bridge.getDefaultTarget();
-  confirmTargetSelect.innerHTML = targets.map(t => 
-    `<option value="${t.id}"${t.id === currentTarget ? ' selected' : ''}>${t.name}</option>`
-  ).join('');
+  confirmTargetSelect.value = currentTarget;
   
   // 根据 Agent 设置默认的内联选项
   const agentConfigs = bridge.getAgentConfigs();
@@ -628,16 +628,68 @@ filterFavoritesBtn.addEventListener('click', () => {
   updateHistoryDisplay();
 });
 
-// Initialize target select
-const targets = bridge.getAvailableTargets();
-const defaultTarget = bridge.getDefaultTarget();
-const toolbarSelect = document.getElementById('target-select') as HTMLSelectElement;
-if (toolbarSelect) {
-  toolbarSelect.innerHTML = targets
-    .filter(t => t.id !== 'copy')
-    .map(t => `<option value="${t.id}"${t.id === defaultTarget ? ' selected' : ''}>${t.name}</option>`)
-    .join('');
+// Update agent select dropdown with running agents
+async function updateAgentSelect(agents?: any[]) {
+  const toolbarSelect = document.getElementById('target-select') as HTMLSelectElement;
+  const confirmSelect = document.getElementById('confirm-target') as HTMLSelectElement;
+  
+  if (!agents) {
+    agents = await bridge.getRunningAgents();
+  }
+  
+  const defaultTarget = bridge.getDefaultTarget();
+  
+  // Build options
+  let options = '<option value="default">🖥️ Default Terminal</option>';
+  
+  if (agents.length > 0) {
+    options += '<optgroup label="Running Agents">';
+    for (const agent of agents) {
+      const icon = getAgentIcon(agent.type);
+      const selected = agent.type === defaultTarget ? ' selected' : '';
+      const terminalInfo = agent.terminalApp ? ` (${agent.terminalApp})` : '';
+      options += `<option value="${agent.type}"${selected}>${icon} ${agent.name}${terminalInfo}</option>`;
+    }
+    options += '</optgroup>';
+  }
+  
+  options += '<optgroup label="Other">';
+  options += '<option value="copy">📋 Copy Only</option>';
+  options += '</optgroup>';
+  
+  if (toolbarSelect) {
+    toolbarSelect.innerHTML = options;
+  }
+  if (confirmSelect) {
+    confirmSelect.innerHTML = options;
+  }
 }
+
+function getAgentIcon(type: string): string {
+  const icons: Record<string, string> = {
+    claude: '🤖',
+    kimi: '🌙',
+    codex: '⚡',
+    cursor: '💠',
+    warp: '🌀',
+    unknown: '🔹'
+  };
+  return icons[type] || '🔹';
+}
+
+// Refresh agents button
+document.getElementById('btn-refresh-agents')?.addEventListener('click', async () => {
+  await updateAgentSelect();
+  showToast('Agents refreshed');
+});
+
+// Initialize agent select on load
+updateAgentSelect();
+
+// Refresh agents periodically (every 10 seconds)
+setInterval(() => {
+  updateAgentSelect();
+}, 10000);
 
 // Focus editor on load
 view.focus();

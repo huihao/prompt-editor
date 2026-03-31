@@ -149,6 +149,8 @@ public class MainWindow: NSObject, WKScriptMessageHandler {
             handleShowFolderPicker(callback: callback)
         case .readFile(let path, let callback):
             handleReadFile(path: path, callback: callback)
+        case .getRunningAgents(let callback):
+            handleGetRunningAgents(callback: callback)
         case .unknown:
             break
         }
@@ -199,6 +201,16 @@ public class MainWindow: NSObject, WKScriptMessageHandler {
         
         let escaped = Helpers.escapeForJS(content)
         callJS("window['\(callback)']('\(escaped)')")
+    }
+    
+    private func handleGetRunningAgents(callback: String) {
+        let agents = AgentDetector.detectRunningAgents()
+        if let json = AgentDetector.toJSON(agents) {
+            let escaped = Helpers.escapeForJS(json)
+            callJS("window['\(callback)']('\(escaped)')")
+        } else {
+            callJS("window['\(callback)'](null, 'Failed to get agents')")
+        }
     }
     
     private func callJS(_ script: String) {

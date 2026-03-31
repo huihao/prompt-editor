@@ -21,6 +21,7 @@ public enum Helpers {
         case scanDirectory(path: String, callback: String)
         case showFolderPicker(callback: String)
         case readFile(path: String, callback: String)
+        case getRunningAgents(callback: String)
         case unknown(String)
     }
 
@@ -52,6 +53,9 @@ public enum Helpers {
             guard let path = dict["path"] as? String else { return nil }
             let callback = dict["callback"] as? String ?? ""
             return .readFile(path: path, callback: callback)
+        case "getRunningAgents":
+            let callback = dict["callback"] as? String ?? ""
+            return .getRunningAgents(callback: callback)
         default:
             return .unknown(action)
         }

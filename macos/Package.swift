@@ -15,7 +15,7 @@ let package = Package(
             dependencies: ["PromptEditorCore"],
             path: "PromptEditor",
             exclude: ["Info.plist", "main.swift", "BridgingHeader.h"],
-            sources: ["Helpers.swift", "MainWindow.swift", "StatusBarItem.swift", "AppDelegate.swift", "TerminalSender.swift"],
+            sources: ["Helpers.swift", "MainWindow.swift", "StatusBarItem.swift", "AppDelegate.swift", "TerminalSender.swift", "AgentDetector.swift"],
             swiftSettings: [
                 .unsafeFlags(["-I", "Libraries"]),
             ],
@@ -30,7 +30,7 @@ let package = Package(
             name: "PromptEditor",
             dependencies: ["PromptEditorLib"],
             path: "PromptEditor",
-            exclude: ["Info.plist", "Helpers.swift", "MainWindow.swift", "StatusBarItem.swift", "AppDelegate.swift", "TerminalSender.swift"],
+            exclude: ["Info.plist", "Helpers.swift", "MainWindow.swift", "StatusBarItem.swift", "AppDelegate.swift", "TerminalSender.swift", "AgentDetector.swift"],
             sources: ["main.swift"]
         ),
         .testTarget(
