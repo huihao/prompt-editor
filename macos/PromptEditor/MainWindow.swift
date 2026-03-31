@@ -204,12 +204,18 @@ public class MainWindow: NSObject, WKScriptMessageHandler {
     }
     
     private func handleGetRunningAgents(callback: String) {
-        let agents = AgentDetector.detectRunningAgents()
-        if let json = AgentDetector.toJSON(agents) {
-            let escaped = Helpers.escapeForJS(json)
-            callJS("window['\(callback)']('\(escaped)')")
-        } else {
-            callJS("window['\(callback)'](null, 'Failed to get agents')")
+        // Run detection asynchronously to avoid blocking main thread
+        Task {
+            let agents = await AgentDetector.detectRunningAgents()
+            
+            await MainActor.run {
+                if let json = AgentDetector.toJSON(agents) {
+                    let escaped = Helpers.escapeForJS(json)
+                    callJS("window['\(callback)']('\(escaped)')")
+                } else {
+                    callJS("window['\(callback)'](null, 'Failed to get agents')")
+                }
+            }
         }
     }
     
