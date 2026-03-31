@@ -18,11 +18,24 @@ all: core editor $(TARGET)
 core:
 	cd core && cargo build --release
 
+core-universal:
+	@echo "Building universal binary for macOS..."
+	cd core && cargo build --release --target aarch64-apple-darwin 2>/dev/null || cargo build --release
+	cd core && cargo build --release --target x86_64-apple-darwin 2>/dev/null || true
+	@if [ -f core/target/aarch64-apple-darwin/release/libprompt_editor_core.a ] && [ -f core/target/x86_64-apple-darwin/release/libprompt_editor_core.a ]; then \
+		lipo -create -output core/target/release/libprompt_editor_core.a \
+			core/target/aarch64-apple-darwin/release/libprompt_editor_core.a \
+			core/target/x86_64-apple-darwin/release/libprompt_editor_core.a; \
+		echo "Created universal binary."; \
+	else \
+		echo "Using default architecture build."; \
+	fi
+
 editor:
 	cd editor && npm install && npx vite build
 
-macos:
-	cd macos && swift build -c release
+macos: core-universal
+	cd macos && arch -arm64 swift build -c release
 
 windows: core editor
 	cd windows && cargo build --release

@@ -445,23 +445,97 @@ document.getElementById('btn-rescan-workspace')?.addEventListener('click', async
   }
 });
 
+// Clear workspace button
+document.getElementById('btn-clear-workspace')?.addEventListener('click', async () => {
+  bridge.setWorkspace('', '');
+  updateWorkspaceBar();
+  showToast('Workspace cleared');
+});
+
+// Workspace history dropdown
+document.getElementById('workspace-history-select')?.addEventListener('change', async (e) => {
+  const select = e.target as HTMLSelectElement;
+  const path = select.value;
+  if (!path) return;
+  
+  const success = await bridge.setWorkspace(path);
+  if (success) {
+    updateWorkspaceBar();
+    showToast('Workspace changed');
+  } else {
+    showToast('Failed to set workspace');
+  }
+  // Reset select to default option
+  select.value = '';
+});
+
 // Update workspace bar UI
 function updateWorkspaceBar() {
   const workspace = bridge.getCurrentWorkspace();
+  const workspaceCurrent = document.getElementById('workspace-current');
   const workspaceInfo = document.getElementById('workspace-info');
+  
+  if (workspaceCurrent) {
+    if (workspace) {
+      workspaceCurrent.textContent = `📂 ${workspace.name}`;
+      workspaceCurrent.title = workspace.path;
+    } else {
+      workspaceCurrent.textContent = 'No workspace selected';
+      workspaceCurrent.title = '';
+    }
+  }
+  
   if (workspaceInfo) {
     if (workspace) {
-      workspaceInfo.textContent = `📂 ${workspace.name} (${workspace.path})`;
       workspaceInfo.classList.add('has-workspace');
     } else {
-      workspaceInfo.textContent = 'No workspace selected';
       workspaceInfo.classList.remove('has-workspace');
     }
+  }
+  
+  // Update workspace history dropdown
+  updateWorkspaceHistoryDropdown();
+}
+
+// Update workspace history dropdown
+function updateWorkspaceHistoryDropdown() {
+  const select = document.getElementById('workspace-history-select') as HTMLSelectElement;
+  if (!select) return;
+  
+  const recentWorkspaces = bridge.getRecentWorkspaces();
+  const currentWorkspace = bridge.getCurrentWorkspace();
+  
+  // Clear existing options except the first one
+  while (select.options.length > 1) {
+    select.remove(1);
+  }
+  
+  // Add recent workspaces
+  if (recentWorkspaces.length > 0) {
+    recentWorkspaces.forEach(ws => {
+      const option = document.createElement('option');
+      option.value = ws.path;
+      option.textContent = `📁 ${ws.name}`;
+      option.title = ws.path;
+      if (currentWorkspace && currentWorkspace.path === ws.path) {
+        option.selected = true;
+      }
+      select.appendChild(option);
+    });
+  } else {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = 'No recent workspaces';
+    option.disabled = true;
+    select.appendChild(option);
   }
 }
 
 // Initialize workspace bar
 updateWorkspaceBar();
+
+// Initialize workspace history dropdown
+updateWorkspaceHistoryDropdown();
 
 // Save button in toolbar - directly save without dialog
 document.getElementById('btn-save')!.addEventListener('click', () => {
