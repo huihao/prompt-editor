@@ -29,6 +29,8 @@ import {
   fillTemplateAndExit,
   getFilledContent,
 } from './template-edit-mode';
+import { showSnippetWheel, hideSnippetWheel, isSnippetWheelVisible } from './snippet-wheel';
+import type { Snippet } from './snippet-manager';
 
 const STORAGE_KEY = 'promptEditor:draft';
 
@@ -194,6 +196,11 @@ const state = EditorState.create({
       {
         key: 'Escape',
         run: () => {
+          // Check if snippet wheel is open
+          if (isSnippetWheelVisible()) {
+            hideSnippetWheel();
+            return true;
+          }
           // Check if template panel is open
           const templatePanel = document.getElementById('template-panel');
           if (templatePanel?.classList.contains('open')) {
@@ -208,6 +215,20 @@ const state = EditorState.create({
         key: 'Mod-Shift-t',
         run: () => {
           showTemplatePanel();
+          return true;
+        },
+      },
+      {
+        key: 'Mod-Shift-s',
+        run: () => {
+          // Show snippet wheel (Cmd+Shift+S / Ctrl+Shift+S)
+          showSnippetWheel(view, (snippet: Snippet) => {
+            const { from } = view.state.selection.main;
+            view.dispatch({
+              changes: { from, insert: snippet.content }
+            });
+            showToast(`Inserted: ${snippet.name}`);
+          });
           return true;
         },
       },
@@ -561,6 +582,17 @@ document.getElementById('btn-save')!.addEventListener('click', () => {
   // Save with empty name - user can edit it later in the history list
   bridge.saveToHistory(content, '');
   resetHistoryNavigation();
+});
+
+// Snippets button (CS-style wheel)
+document.getElementById('btn-snippets')!.addEventListener('click', () => {
+  showSnippetWheel(view, (snippet: Snippet) => {
+    const { from } = view.state.selection.main;
+    view.dispatch({
+      changes: { from, insert: snippet.content }
+    });
+    showToast(`Inserted: ${snippet.name}`);
+  });
 });
 
 // Template button

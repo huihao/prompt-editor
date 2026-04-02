@@ -1,0 +1,280 @@
+{
+  "version": "1.0",
+  "categories": [
+    {
+      "id": "security",
+      "name": "Security",
+      "icon": "🔒",
+      "description": "Security checks and best practices",
+      "subcategories": [
+        {
+          "id": "security-frontend",
+          "name": "Frontend",
+          "icon": "🎨",
+          "description": "Frontend security concerns",
+          "subcategories": [
+            {
+              "id": "security-frontend-xss",
+              "name": "XSS Prevention",
+              "icon": "🛡️",
+              "snippets": [
+                {
+                  "id": "xss-input-validation",
+                  "name": "Validate User Input",
+                  "description": "Ensure all user inputs are properly validated",
+                  "content": "Check that all user inputs are validated on both client and server side. Use allowlists instead of denylists for input validation."
+                },
+                {
+                  "id": "xss-output-encoding",
+                  "name": "Output Encoding",
+                  "description": "Encode output to prevent XSS",
+                  "content": "Ensure all dynamic content is properly HTML-encoded before rendering. Use framework-provided escaping mechanisms."
+                },
+                {
+                  "id": "xss-csp",
+                  "name": "Content Security Policy",
+                  "description": "Implement CSP headers",
+                  "content": "Implement Content Security Policy (CSP) headers to mitigate XSS attacks. Start with report-only mode."
+                }
+              ]
+            },
+            {
+              "id": "security-frontend-csrf",
+              "name": "CSRF Protection",
+              "icon": "🔄",
+              "snippets": [
+                {
+                  "id": "csrf-tokens",
+                  "name": "CSRF Tokens",
+                  "description": "Implement CSRF token validation",
+                  "content": "Ensure all state-changing requests include and validate CSRF tokens. Tokens should be unique per session."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "security-backend",
+          "name": "Backend",
+          "icon": "⚙️",
+          "description": "Backend security checks",
+          "subcategories": [
+            {
+              "id": "security-backend-sql",
+              "name": "Database Security",
+              "icon": "🗄️",
+              "snippets": [
+                {
+                  "id": "sql-injection",
+                  "name": "Check for SQL Injection",
+                  "description": "Verify SQL injection prevention",
+                  "content": "Check for SQL injection vulnerabilities. Ensure all database queries use parameterized statements or ORM. Never concatenate user input into SQL queries."
+                },
+                {
+                  "id": "sql-authz",
+                  "name": "Verify Authorization",
+                  "description": "Check authorization on endpoints",
+                  "content": "Verify authorization on every endpoint. Ensure users can only access data they own or have permission to access. Implement role-based access control (RBAC)."
+                }
+              ]
+            },
+            {
+              "id": "security-backend-secrets",
+              "name": "Secrets Management",
+              "icon": "🔑",
+              "snippets": [
+                {
+                  "id": "secrets-hardcoded",
+                  "name": "No Hardcoded Secrets",
+                  "description": "Ensure secrets are not hardcoded",
+                  "content": "Ensure secrets are not hardcoded in source code. Use environment variables, secret managers, or secure vaults. Check for API keys, passwords, and tokens."
+                },
+                {
+                  "id": "secrets-env",
+                  "name": "Environment Variables",
+                  "description": "Proper use of environment variables",
+                  "content": "Verify that sensitive configuration is loaded from environment variables. Ensure .env files are in .gitignore."
+                }
+              ]
+            },
+            {
+              "id": "security-backend-api",
+              "name": "API Security",
+              "icon": "🔌",
+              "snippets": [
+                {
+                  "id": "api-rate-limiting",
+                  "name": "Rate Limiting",
+                  "description": "Implement rate limiting",
+                  "content": "Implement rate limiting on API endpoints to prevent abuse. Consider different limits for authenticated vs unauthenticated users."
+                },
+                {
+                  "id": "api-input-validation",
+                  "name": "Input Validation",
+                  "description": "Validate all API inputs",
+                  "content": "Validate all API inputs for type, length, format, and range. Reject malformed requests early."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "code-quality",
+      "name": "Code Quality",
+      "icon": "✨",
+      "description": "Code quality and best practices",
+      "subcategories": [
+        {
+          "id": "quality-performance",
+          "name": "Performance",
+          "icon": "🚀",
+          "snippets": [
+            {
+              "id": "perf-n-plus-one",
+              "name": "N+1 Query Check",
+              "description": "Check for N+1 query problems",
+              "content": "Check for N+1 query problems in database operations. Use eager loading or join queries to reduce database round trips."
+            },
+            {
+              "id": "perf-caching",
+              "name": "Caching Strategy",
+              "description": "Review caching implementation",
+              "content": "Review caching strategy. Ensure appropriate use of memoization, response caching, and data caching. Verify cache invalidation logic."
+            },
+            {
+              "id": "perf-bundle",
+              "name": "Bundle Size",
+              "description": "Optimize bundle size",
+              "content": "Check bundle size. Remove unused dependencies. Implement code splitting and lazy loading for large applications."
+            }
+          ]
+        },
+        {
+          "id": "quality-maintainability",
+          "name": "Maintainability",
+          "icon": "📝",
+          "snippets": [
+            {
+              "id": "maint-docstrings",
+              "name": "Documentation",
+              "description": "Add proper documentation",
+              "content": "Ensure public APIs have proper documentation. Add inline comments for complex business logic. Keep README files up to date."
+            },
+            {
+              "id": "maint-tests",
+              "name": "Test Coverage",
+              "description": "Review test coverage",
+              "content": "Review test coverage. Ensure critical paths have adequate tests. Add unit tests for business logic and integration tests for APIs."
+            },
+            {
+              "id": "maint-error-handling",
+              "name": "Error Handling",
+              "description": "Review error handling",
+              "content": "Review error handling. Ensure errors are properly caught, logged, and meaningful error messages are returned to users. Don't expose internal details."
+            }
+          ]
+        },
+        {
+          "id": "quality-readability",
+          "name": "Readability",
+          "icon": "📖",
+          "snippets": [
+            {
+              "id": "read-naming",
+              "name": "Naming Conventions",
+              "description": "Check naming consistency",
+              "content": "Check naming conventions. Use descriptive names for variables, functions, and classes. Follow language-specific conventions."
+            },
+            {
+              "id": "read-functions",
+              "name": "Function Size",
+              "description": "Keep functions focused",
+              "content": "Keep functions small and focused on a single responsibility. If a function does too much, consider breaking it down."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "architecture",
+      "name": "Architecture",
+      "icon": "🏗️",
+      "description": "Architecture and design patterns",
+      "subcategories": [
+        {
+          "id": "arch-patterns",
+          "name": "Design Patterns",
+          "icon": "🧩",
+          "snippets": [
+            {
+              "id": "pattern-solid",
+              "name": "SOLID Principles",
+              "description": "Check SOLID compliance",
+              "content": "Review code against SOLID principles: Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion."
+            },
+            {
+              "id": "pattern-dry",
+              "name": "DRY Principle",
+              "description": "Avoid code duplication",
+              "content": "Check for code duplication. Extract common logic into reusable functions or components. But don't over-abstract."
+            }
+          ]
+        },
+        {
+          "id": "arch-dependencies",
+          "name": "Dependencies",
+          "icon": "📦",
+          "snippets": [
+            {
+              "id": "deps-updated",
+              "name": "Dependency Updates",
+              "description": "Check for outdated dependencies",
+              "content": "Check for outdated dependencies. Review changelogs before updating. Pin critical dependencies."
+            },
+            {
+              "id": "deps-unused",
+              "name": "Unused Dependencies",
+              "description": "Remove unused packages",
+              "content": "Identify and remove unused dependencies. They increase attack surface and bundle size."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "review-checklist",
+      "name": "Review Checklist",
+      "icon": "✅",
+      "description": "Common code review items",
+      "subcategories": [
+        {
+          "id": "review-general",
+          "name": "General",
+          "icon": "📋",
+          "snippets": [
+            {
+              "id": "review-self",
+              "name": "Self Review First",
+              "description": "Review your own code",
+              "content": "Before requesting a review, do a self-review. Look for obvious issues, debugging code left behind, and ensure the code meets requirements."
+            },
+            {
+              "id": "review-tests-pass",
+              "name": "Tests Passing",
+              "description": "Ensure all tests pass",
+              "content": "Ensure all tests pass before submitting for review. Run the full test suite, not just the tests you wrote."
+            },
+            {
+              "id": "review-lint",
+              "name": "Linting",
+              "description": "Check code style",
+              "content": "Ensure code follows linting rules. Run the linter and fix any warnings or errors."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
