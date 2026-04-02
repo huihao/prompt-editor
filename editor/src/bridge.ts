@@ -30,8 +30,8 @@ interface HistoryItem {
   isFavorite: boolean;
 }
 
-// Target types for sending
-type SendTarget = 'default' | 'claude' | 'codex' | 'kimi' | 'cursor' | 'copy';
+// Target types for sending (can be agent ID like 'claude-12345')
+type SendTarget = 'default' | 'claude' | 'codex' | 'kimi' | 'cursor' | 'copy' | string;
 
 // Target configuration
 interface TargetConfig {
@@ -57,20 +57,30 @@ export interface DetectedAgent {
   type: 'claude' | 'kimi' | 'codex' | 'cursor' | 'warp' | 'unknown';
   pid: number;
   terminalApp?: string;
+  workingDirectory?: string;
   windowTitle?: string;
 }
 
 const TARGET_STORAGE_KEY = 'promptEditor:defaultTarget';
 
-function getDefaultTarget(): SendTarget {
+function getDefaultTarget(): string {
   const saved = localStorage.getItem(TARGET_STORAGE_KEY);
-  if (saved && AVAILABLE_TARGETS.find(t => t.id === saved)) {
-    return saved as SendTarget;
+  if (!saved) return 'default';
+  
+  // Check if it's a known target type
+  if (AVAILABLE_TARGETS.find(t => t.id === saved)) {
+    return saved;
   }
+  
+  // Check if it's an agent ID (format: type-PID)
+  if (saved.includes('-')) {
+    return saved;
+  }
+  
   return 'default';
 }
 
-function setDefaultTarget(target: SendTarget) {
+function setDefaultTarget(target: string) {
   localStorage.setItem(TARGET_STORAGE_KEY, target);
 }
 
@@ -96,8 +106,8 @@ interface NativeBridge {
   searchHistory: (query: string) => HistoryItem[];
   renderHistory: (items?: HistoryItem[]) => void;
   getAvailableTargets: () => TargetConfig[];
-  getDefaultTarget: () => SendTarget;
-  setDefaultTarget: (target: SendTarget) => void;
+  getDefaultTarget: () => string;
+  setDefaultTarget: (target: string) => void;
   // File reference methods
   scanFolder: (path: string) => Promise<void>;
   showFolderPicker: () => Promise<string | null>;
@@ -202,13 +212,32 @@ export const bridge: NativeBridge = {
     await bridge.sendContent(content, target);
   },
 
-  async sendContent(content: string, target?: SendTarget) {
+  async sendContent(content: string, target?: string) {
     if (!content.trim()) return;
     
     const effectiveTarget = target || getDefaultTarget();
     
-    // 转换文件引用格式
-    const convertedContent = await bridge.convertForTarget(content, effectiveTarget as AgentFormat);
+    // Check if target is an agent ID (contains hyphen with PID)
+    let agentType = effectiveTarget;
+    let agentInfo: DetectedAgent | undefined;
+    
+    const agents = (window as any).__runningAgents as DetectedAgent[] || [];
+    
+    if (agents.length > 0) {
+      const matchedAgent = agents.find(a => a.id === effectiveTarget);
+      if (matchedAgent) {
+        agentType = matchedAgent.type;
+        agentInfo = matchedAgent;
+      }
+    }
+    
+    // DEBUG: Show what we're about to send
+    const debugInfo = `Target: ${target}\nEffective: ${effectiveTarget}\nAgent Type: ${agentType}\nMatched: ${agentInfo ? 'YES' : 'NO'}\nTerminal: ${agentInfo?.terminalApp || 'none'}`;
+    console.log('[bridge] Sending:', debugInfo);
+    // alert(debugInfo); // Uncomment to show debug alert
+    
+    // 转换文件引用格式 (use agent type for format conversion)
+    const convertedContent = await bridge.convertForTarget(content, agentType as AgentFormat);
     const resolvedContent = prepareContentForSend(convertedContent);
     
     bridge.addToHistory(content);
@@ -218,7 +247,14 @@ export const bridge: NativeBridge = {
       // Copy mode - just copy to clipboard without typing
       bridge.copyToClipboard(resolvedContent);
     } else {
-      postToNative('send', { content: resolvedContent, target: effectiveTarget });
+      // Send with agent info for precise targeting
+      postToNative('send', { 
+        content: resolvedContent, 
+        target: agentType,
+        agentId: agentInfo?.id,
+        pid: agentInfo?.pid,
+        terminalApp: agentInfo?.terminalApp
+      });
     }
   },
 
@@ -383,7 +419,7 @@ export const bridge: NativeBridge = {
     return getDefaultTarget();
   },
 
-  setDefaultTarget(target: SendTarget) {
+  setDefaultTarget(target: string) {
     setDefaultTarget(target);
   },
 
@@ -492,19 +528,25 @@ export const bridge: NativeBridge = {
   },
 
   async getRunningAgents(): Promise<DetectedAgent[]> {
+    console.log('[bridge] getRunningAgents called');
     return new Promise((resolve) => {
       const isNative = typeof window !== 'undefined' && 
         (window.webkit?.messageHandlers?.promptEditor || 
          (window as any).__TAURI__);
 
+      console.log('[bridge] isNative:', isNative);
+
       if (!isNative) {
-        // Fallback: return empty array for web mode
+        console.log('[bridge] Not in native mode, returning empty array');
         resolve([]);
         return;
       }
 
       const callbackName = `agentsCallback_${Date.now()}`;
+      console.log('[bridge] Creating callback:', callbackName);
+      
       (window as any)[callbackName] = (result: string | null, error?: string) => {
+        console.log('[bridge] Callback invoked:', callbackName, 'error:', error, 'result length:', result?.length);
         delete (window as any)[callbackName];
         if (error || !result) {
           console.error('Get running agents error:', error);
@@ -512,6 +554,7 @@ export const bridge: NativeBridge = {
         } else {
           try {
             const agents: DetectedAgent[] = JSON.parse(result);
+            console.log('[bridge] Parsed agents:', agents.length, agents);
             resolve(agents);
           } catch (e) {
             console.error('Failed to parse agents:', e);
@@ -521,17 +564,19 @@ export const bridge: NativeBridge = {
       };
 
       if (window.webkit?.messageHandlers?.promptEditor) {
+        console.log('[bridge] Sending postMessage to promptEditor');
         window.webkit.messageHandlers.promptEditor.postMessage({
           action: 'getRunningAgents',
           callback: callbackName,
         });
       } else if ((window as any).__TAURI__) {
-        // Tauri implementation placeholder
+        console.log('[bridge] Tauri mode not implemented');
         resolve([]);
       }
 
       setTimeout(() => {
         if ((window as any)[callbackName]) {
+          console.log('[bridge] Timeout waiting for agents response');
           delete (window as any)[callbackName];
           resolve([]);
         }

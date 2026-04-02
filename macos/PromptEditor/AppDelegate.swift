@@ -162,28 +162,85 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Send Content
 
-    public func sendContent(_ content: String, target: String = "default") {
-        // Capture target app before hiding window
-        let targetApp = previousApp
-        
-        // Validate we have a target app
-        guard targetApp != nil else {
-            NSLog("PromptEditor: No previous app to send to")
-            // Don't hide window if we can't send
-            return
-        }
-
-        // Hide window
+    public func sendContent(_ content: String, target: String = "default", agent: DetectedAgent? = nil) {
+        // Hide window first
         hideWindow()
-
+        
         // Parse CLI target
         let cliTarget = CLITarget(rawValue: target) ?? .default
+        
+        NSLog("PromptEditor: Sending content to target '\(target)', agent: \(agent?.id ?? "none")")
 
-        // Send to terminal (or paste to non-terminal) after a short delay
+        // Send to terminal after a short delay
         // The delay allows the window to hide and focus to return to the target app
         DispatchQueue.main.asyncAfter(deadline: .now() + Helpers.WindowConfig.pasteDelay) {
+            // If we have specific agent info with terminal app, use that
+            if let agent = agent, let terminalApp = agent.terminalApp {
+                NSLog("PromptEditor: Looking for terminal app: \(terminalApp)")
+                if let specificApp = self.findRunningApplication(named: terminalApp) {
+                    NSLog("PromptEditor: Found terminal app, activating and sending")
+                    specificApp.activate(options: .activateIgnoringOtherApps)
+                    // Add small delay after activation
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        TerminalSender.send(content: content, to: specificApp, target: cliTarget)
+                    }
+                    return
+                } else {
+                    NSLog("PromptEditor: Could not find terminal app '\(terminalApp)', falling back to previous app")
+                }
+            }
+            
+            // Fall back to previous app
+            guard let targetApp = self.previousApp else {
+                NSLog("PromptEditor: No previous app to send to")
+                return
+            }
+            
+            NSLog("PromptEditor: Sending to previous app: \(targetApp.bundleIdentifier ?? "unknown")")
             TerminalSender.send(content: content, to: targetApp, target: cliTarget)
         }
+    }
+    
+    /// Find a running application by name
+    private func findRunningApplication(named: String) -> NSRunningApplication? {
+        let apps = NSWorkspace.shared.runningApplications
+        let searchName = named.lowercased()
+        
+        for app in apps {
+            let appName = app.localizedName?.lowercased() ?? ""
+            let bundleId = app.bundleIdentifier?.lowercased() ?? ""
+            
+            // Check various matching patterns
+            if appName.contains(searchName) || 
+               bundleId.contains(searchName.replacingOccurrences(of: " ", with: "").lowercased()) ||
+               bundleId.contains(searchName.replacingOccurrences(of: "-", with: "").lowercased()) {
+                NSLog("PromptEditor: Found app '\(app.localizedName ?? "unknown")' with bundle ID '\(app.bundleIdentifier ?? "unknown")'")
+                return app
+            }
+            
+            // Special handling for common terminals
+            switch searchName {
+            case "iterm2":
+                if bundleId.contains("iterm") || appName.contains("iterm") {
+                    return app
+                }
+            case "terminal":
+                if bundleId == "com.apple.terminal" || appName == "terminal" {
+                    return app
+                }
+            case "warp":
+                if bundleId.contains("warp") || appName.contains("warp") {
+                    return app
+                }
+            case "kitty":
+                if bundleId.contains("kitty") || appName.contains("kitty") {
+                    return app
+                }
+            default:
+                break
+            }
+        }
+        return nil
     }
 
     // MARK: - Pipe Mode

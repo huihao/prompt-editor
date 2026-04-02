@@ -292,12 +292,21 @@ let pendingConvertedContent = '';
 async function showConfirmDialog(content: string) {
   pendingSendContent = content;
   
-  // Refresh agent list in confirm dialog
-  await updateAgentSelect();
+  // Sync confirm dialog selection with toolbar selection
+  const toolbarSelect = document.getElementById('target-select') as HTMLSelectElement;
+  if (toolbarSelect && confirmTargetSelect) {
+    confirmTargetSelect.value = toolbarSelect.value;
+  }
   
-  // Set current target
-  const currentTarget = bridge.getDefaultTarget();
-  confirmTargetSelect.value = currentTarget;
+  // If current selection is not valid, fall back to default
+  const currentValue = confirmTargetSelect.value;
+  const agents = (window as any).__runningAgents || [];
+  const isValidSelection = agents.some((a: any) => a.id === currentValue) || 
+                           currentValue === 'default' || 
+                           currentValue === 'copy';
+  if (!isValidSelection) {
+    confirmTargetSelect.value = 'default';
+  }
   
   // 根据 Agent 设置默认的内联选项
   const agentConfigs = bridge.getAgentConfigs();
@@ -391,10 +400,18 @@ confirmDialog.addEventListener('keydown', async (e) => {
   }
 });
 
-// Target select in toolbar
-document.getElementById('target-select')!.addEventListener('change', (e) => {
-  const target = (e.target as HTMLSelectElement).value as any;
-  bridge.setDefaultTarget(target);
+// Target select in toolbar - save the selected agent ID
+const toolbarSelect = document.getElementById('target-select') as HTMLSelectElement;
+toolbarSelect?.addEventListener('change', (e) => {
+  const selectedValue = (e.target as HTMLSelectElement).value;
+  // If it's an agent ID (contains hyphen with PID), extract the type for format conversion
+  // but save the full ID for precise targeting
+  if (selectedValue.includes('-')) {
+    const agentType = selectedValue.split('-')[0];
+    bridge.setDefaultTarget(selectedValue); // Save full agent ID
+  } else {
+    bridge.setDefaultTarget(selectedValue);
+  }
 });
 
 // Toolbar buttons
@@ -637,20 +654,61 @@ async function updateAgentSelect(agents?: any[]) {
     agents = await bridge.getRunningAgents();
   }
   
-  const defaultTarget = bridge.getDefaultTarget();
+  // DEBUG: Log detected agents
+  console.log('[updateAgentSelect] Detected agents:', agents);
+  if (agents.length > 0) {
+    showToast(`Detected ${agents.length} agents: ${agents.map((a: any) => `${a.type}(${a.terminalApp || '?'})`).join(', ')}`);
+  }
+  
+  // Remember current selection before updating
+  const toolbarCurrentValue = toolbarSelect?.value;
+  const confirmCurrentValue = confirmSelect?.value;
+  
+  // Check if current selection is still valid (agent still exists)
+  const currentAgentStillExists = agents.some((a: any) => a.id === toolbarCurrentValue);
+  const selectionToKeep = currentAgentStillExists ? toolbarCurrentValue : null;
+  
+  // Store agents for later lookup
+  (window as any).__runningAgents = agents;
+  
+  // Determine which value should be selected
+  // Priority: 1) Keep current selection if still valid, 2) Use defaultTarget if valid, 3) 'default'
+  const targetToSelect = selectionToKeep 
+    || (agents.some((a: any) => a.id === bridge.getDefaultTarget()) ? bridge.getDefaultTarget() : null)
+    || 'default';
   
   // Build options
   let options = '<option value="default">🖥️ Default Terminal</option>';
   
   if (agents.length > 0) {
-    options += '<optgroup label="Running Agents">';
+    // Group agents by type
+    const grouped = new Map<string, any[]>();
     for (const agent of agents) {
-      const icon = getAgentIcon(agent.type);
-      const selected = agent.type === defaultTarget ? ' selected' : '';
-      const terminalInfo = agent.terminalApp ? ` (${agent.terminalApp})` : '';
-      options += `<option value="${agent.type}"${selected}>${icon} ${agent.name}${terminalInfo}</option>`;
+      const list = grouped.get(agent.type) || [];
+      list.push(agent);
+      grouped.set(agent.type, list);
     }
-    options += '</optgroup>';
+    
+    // Add agents grouped by type
+    for (const [type, typeAgents] of grouped) {
+      if (typeAgents.length === 1) {
+        // Single agent of this type
+        const agent = typeAgents[0];
+        const icon = getAgentIcon(agent.type);
+        const selected = agent.id === targetToSelect ? ' selected' : '';
+        const details = formatAgentDetails(agent);
+        options += `<option value="${agent.id}"${selected}>${icon} ${agent.name}${details}</option>`;
+      } else {
+        // Multiple agents of same type - use optgroup
+        options += `<optgroup label="${getAgentIcon(type)} ${getAgentTypeName(type)} (${typeAgents.length})">`;
+        for (const agent of typeAgents) {
+          const selected = agent.id === targetToSelect ? ' selected' : '';
+          const details = formatAgentDetails(agent);
+          options += `<option value="${agent.id}"${selected}>  ${agent.name}${details}</option>`;
+        }
+        options += '</optgroup>';
+      }
+    }
   }
   
   options += '<optgroup label="Other">';
@@ -665,6 +723,31 @@ async function updateAgentSelect(agents?: any[]) {
   }
 }
 
+function getAgentTypeName(type: string): string {
+  const names: Record<string, string> = {
+    claude: 'Claude Code',
+    kimi: 'Kimi CLI',
+    codex: 'Codex CLI',
+    cursor: 'Cursor',
+    warp: 'Warp',
+    unknown: 'Unknown'
+  };
+  return names[type] || type;
+}
+
+function formatAgentDetails(agent: any): string {
+  const parts: string[] = [];
+  if (agent.workingDirectory) {
+    parts.push(agent.workingDirectory);
+  } else if (agent.terminalApp) {
+    parts.push(agent.terminalApp);
+  }
+  if (parts.length > 0) {
+    return ` — ${parts.join(' • ')}`;
+  }
+  return '';
+}
+
 function getAgentIcon(type: string): string {
   const icons: Record<string, string> = {
     claude: '🤖',
@@ -677,19 +760,14 @@ function getAgentIcon(type: string): string {
   return icons[type] || '🔹';
 }
 
-// Refresh agents button
+// Refresh agents button (manual only)
 document.getElementById('btn-refresh-agents')?.addEventListener('click', async () => {
   await updateAgentSelect();
   showToast('Agents refreshed');
 });
 
-// Initialize agent select on load
+// Initialize agent select on load (only once)
 updateAgentSelect();
-
-// Refresh agents periodically (every 10 seconds)
-setInterval(() => {
-  updateAgentSelect();
-}, 10000);
 
 // Focus editor on load
 view.focus();

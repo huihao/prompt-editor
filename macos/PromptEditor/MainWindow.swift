@@ -127,11 +127,23 @@ public class MainWindow: NSObject, WKScriptMessageHandler {
         let delegate = NSApp.delegate as! AppDelegate
 
         switch action {
-        case .send(let content, let target):
+        case .send(let content, let target, let agentId, let pid, let terminalApp):
+            NSLog("[MainWindow] Received send action - target: \(target), agentId: \(agentId ?? "nil"), pid: \(pid ?? 0), terminalApp: \(terminalApp ?? "nil")")
             if isPipeMode {
                 delegate.pipeOutput(content)
             } else {
-                delegate.sendContent(content, target: target)
+                // Create agent info for precise targeting
+                let agentInfo: DetectedAgent? = (agentId != nil) ? DetectedAgent(
+                    id: agentId!,
+                    name: target,
+                    type: DetectedAgent.AgentType(rawValue: target) ?? .unknown,
+                    pid: pid ?? 0,
+                    terminalApp: terminalApp,
+                    windowTitle: nil,
+                    workingDirectory: nil
+                ) : nil
+                NSLog("[MainWindow] Calling sendContent with agentInfo: \(agentInfo != nil ? "present" : "nil")")
+                delegate.sendContent(content, target: target, agent: agentInfo)
             }
         case .copy(let content):
             // Copy to clipboard without sending
@@ -204,16 +216,21 @@ public class MainWindow: NSObject, WKScriptMessageHandler {
     }
     
     private func handleGetRunningAgents(callback: String) {
+        print("[MainWindow] handleGetRunningAgents called with callback: \(callback)")
         // Run detection asynchronously to avoid blocking main thread
         Task {
+            print("[MainWindow] Starting agent detection...")
             let agents = await AgentDetector.detectRunningAgents()
+            print("[MainWindow] Detected \(agents.count) agents")
             
             await MainActor.run {
                 if let json = AgentDetector.toJSON(agents) {
+                    print("[MainWindow] JSON encoded, length: \(json.count)")
                     let escaped = Helpers.escapeForJS(json)
-                    callJS("window['\(callback)']('\(escaped)')")
+                    self.callJS("window['\(callback)']('\(escaped)')")
                 } else {
-                    callJS("window['\(callback)'](null, 'Failed to get agents')")
+                    print("[MainWindow] Failed to encode agents to JSON")
+                    self.callJS("window['\(callback)'](null, 'Failed to encode agents')")
                 }
             }
         }

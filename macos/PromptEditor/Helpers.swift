@@ -7,6 +7,7 @@ public enum Helpers {
         text
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "'", with: "\\'")
+            .replacingOccurrences(of: "\"", with: "\\\"")
             .replacingOccurrences(of: "\n", with: "\\n")
             .replacingOccurrences(of: "\r", with: "\\r")
             .replacingOccurrences(of: "\t", with: "\\t")
@@ -14,7 +15,7 @@ public enum Helpers {
 
     /// Parse a JS bridge message body dictionary into a typed action.
     public enum BridgeAction: Equatable {
-        case send(content: String, target: String)
+        case send(content: String, target: String, agentId: String?, pid: Int32?, terminalApp: String?)
         case copy(content: String)
         case hide
         case showHistory
@@ -34,7 +35,10 @@ public enum Helpers {
         case "send":
             guard let content = dict["content"] as? String else { return nil }
             let target = dict["target"] as? String ?? "default"
-            return .send(content: content, target: target)
+            let agentId = dict["agentId"] as? String
+            let pid = dict["pid"] as? Int32
+            let terminalApp = dict["terminalApp"] as? String
+            return .send(content: content, target: target, agentId: agentId, pid: pid, terminalApp: terminalApp)
         case "copy":
             guard let content = dict["content"] as? String else { return nil }
             return .copy(content: content)
