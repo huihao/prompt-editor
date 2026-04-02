@@ -353,8 +353,9 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
         <body>
             <div class="snippet-wheel-popup" id="root"></div>
             <script>
-                // Snippet data injected from native
-                const SNIPPET_DATA = \(snippetData);
+                // Snippet data injected from native (base64 encoded)
+                const SNIPPET_DATA_JSON = '\(snippetData.data(using: .utf8)!.base64EncodedString())';
+                const SNIPPET_DATA = JSON.parse(atob(SNIPPET_DATA_JSON));
                 
                 // Wheel state
                 let currentCategoryId = null;
@@ -689,9 +690,18 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
             NSEvent.removeMonitor(monitor)
         }
         
-        clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
-            // Close when clicking outside
-            self?.close()
+        // Use global monitor to detect clicks outside the window
+        clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            guard let self = self else { return }
+            
+            // Get mouse location in screen coordinates
+            let mouseLocation = NSEvent.mouseLocation
+            
+            // Check if click is inside our window frame
+            if !self.window.frame.contains(mouseLocation) {
+                // Click is outside, close the window
+                self.close()
+            }
         }
     }
     
