@@ -46,15 +46,12 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
         let config = WKWebViewConfiguration()
         let userContentController = WKUserContentController()
         config.userContentController = userContentController
-        config.preferences.javaScriptEnabled = true
         
-        // Allow transparent background
-        config.preferences.setValue(true, forKey: "allowUniversalAccessFromFileURLs")
+        // Configure for transparency
+        config.preferences.setValue(true, forKey: "allowsPictureInPictureMediaPlayback")
         
         webView = WKWebView(frame: .zero, configuration: config)
         webView.translatesAutoresizingMaskIntoConstraints = false
-        // Make webview transparent - use valueForKey to set drawsBackground on macOS
-        webView.setValue(false, forKey: "drawsBackground")
         
         super.init()
         
@@ -75,15 +72,14 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
             webView.topAnchor.constraint(equalTo: container.topAnchor),
             webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
-        
-        // Load the wheel HTML
-        loadWheelHTML()
     }
     
     private func loadWheelHTML() {
         // Build inline HTML with embedded snippet data
         let html = buildHTML()
-        webView.loadHTMLString(html, baseURL: nil)
+        DispatchQueue.main.async { [weak self] in
+            self?.webView.loadHTMLString(html, baseURL: nil)
+        }
     }
     
     private func buildHTML() -> String {
@@ -666,31 +662,35 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
     }
     
     public func show() {
-        // Ensure window is centered
-        if let screen = NSScreen.main {
-            let windowSize: CGFloat = 600
-            let windowFrame = NSRect(
-                x: screen.visibleFrame.midX - windowSize / 2,
-                y: screen.visibleFrame.midY - windowSize / 2,
-                width: windowSize,
-                height: windowSize
-            )
-            window.setFrame(windowFrame, display: false)
-        }
-        
-        // Activate app and show window
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
-        window.alphaValue = 0
-        
-        // Setup click outside monitor
-        setupClickOutsideMonitor()
-        
-        // Fade in animation
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.15
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            window.animator().alphaValue = 1
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            // Ensure window is centered
+            if let screen = NSScreen.main {
+                let windowSize: CGFloat = 600
+                let windowFrame = NSRect(
+                    x: screen.visibleFrame.midX - windowSize / 2,
+                    y: screen.visibleFrame.midY - windowSize / 2,
+                    width: windowSize,
+                    height: windowSize
+                )
+                self.window.setFrame(windowFrame, display: false)
+            }
+            
+            // Activate app and show window
+            NSApp.activate(ignoringOtherApps: true)
+            self.window.makeKeyAndOrderFront(nil)
+            self.window.alphaValue = 0
+            
+            // Setup click outside monitor
+            self.setupClickOutsideMonitor()
+            
+            // Fade in animation
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.15
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                self.window.animator().alphaValue = 1
+            }
         }
     }
     
@@ -750,8 +750,7 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
     public func injectSnippetData(_ json: String) {
         snippetData = json
         // Reload HTML with new data
-        let html = buildHTML()
-        webView.loadHTMLString(html, baseURL: nil)
+        loadWheelHTML()
     }
     
     // MARK: - WKScriptMessageHandler
