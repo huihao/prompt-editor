@@ -670,6 +670,8 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
             window.setFrame(windowFrame, display: false)
         }
         
+        // Activate app and show window
+        NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
         window.alphaValue = 0
         

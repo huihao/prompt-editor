@@ -86,8 +86,7 @@ class SnippetWheel {
       
       // Send to native via bridge
       window.webkit?.messageHandlers?.promptEditor?.postMessage({
-        type: 'showSnippetWheel',
-        data: data
+        action: 'showSnippetWheel'
       });
     });
   }
