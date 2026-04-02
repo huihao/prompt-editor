@@ -34,13 +34,18 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
             defer: false
         )
         
-        // Configure for overlay appearance
+        // Configure for overlay appearance - full screen transparent window
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = false
         window.level = .modalPanel
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.isFloatingPanel = true
+        
+        // Make window full screen size (covering entire screen)
+        if let screen = NSScreen.main {
+            window.setFrame(screen.visibleFrame, display: false)
+        }
         
         // Configure WKWebView
         let config = WKWebViewConfiguration()
@@ -114,6 +119,24 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    cursor: default;
+                }
+                
+                /* Click-through background - clicking here closes the window */
+                .wheel-background {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.3);
+                    cursor: default;
+                }
+                
+                @media (prefers-color-scheme: light) {
+                    .wheel-background {
+                        background: rgba(0, 0, 0, 0.2);
+                    }
                 }
                 
                 .snippet-wheel-container {
@@ -128,6 +151,7 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                     backdrop-filter: blur(20px);
                     border-radius: 20px;
                     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+                    cursor: default;
                 }
                 
                 @media (prefers-color-scheme: light) {
@@ -355,7 +379,9 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
             </style>
         </head>
         <body>
-            <div class="snippet-wheel-popup" id="root"></div>
+            <div class="snippet-wheel-popup" id="root">
+                <div class="wheel-background" id="background"></div>
+            </div>
             <script>
                 // Snippet data injected from native (base64 encoded)
                 const SNIPPET_DATA_JSON = '\(base64Data)';
@@ -369,16 +395,20 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                 // Initialize
                 document.addEventListener('DOMContentLoaded', () => {
                     renderRoot();
-                    setupClickOutside();
+                    setupBackgroundClick();
                 });
                 
-                function setupClickOutside() {
-                    document.addEventListener('click', (e) => {
-                        const container = document.querySelector('.snippet-wheel-container');
-                        if (container && !container.contains(e.target)) {
-                            closeWheel();
-                        }
-                    });
+                // Setup click on background to close window
+                function setupBackgroundClick() {
+                    const background = document.getElementById('background');
+                    if (background) {
+                        background.addEventListener('click', (e) => {
+                            // Only close if clicking directly on the background
+                            if (e.target === background) {
+                                closeWheel();
+                            }
+                        });
+                    }
                 }
                 
                 function closeWheel() {
@@ -701,27 +731,11 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
             clickMonitor = nil
         }
         
-        // Use local monitor to detect clicks in our window that should close it
-        // We add an invisible overlay view that handles clicks outside the wheel area
-        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
-            guard let self = self, event.window === self.window else { return event }
+        // Add local monitor for Escape key to close the wheel
+        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self = self else { return event }
             
-            // Convert mouse location to window coordinates
-            let location = event.locationInWindow
-            
-            // Check if click is inside the wheel container (approximately)
-            // The wheel container is 600x600 centered in the window
-            let windowSize = self.window.frame.size
-            let wheelSize: CGFloat = 600
-            let wheelFrame = NSRect(
-                x: (windowSize.width - wheelSize) / 2,
-                y: (windowSize.height - wheelSize) / 2,
-                width: wheelSize,
-                height: wheelSize
-            )
-            
-            if !wheelFrame.contains(location) {
-                // Click is outside the wheel area, close the window
+            if event.keyCode == 53 { // Escape key
                 self.close()
                 return nil // Consume the event
             }
