@@ -87,6 +87,14 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
     }
     
     private func buildHTML() -> String {
+        // Safely encode snippet data to base64
+        let base64Data: String
+        if let data = snippetData.data(using: .utf8) {
+            base64Data = data.base64EncodedString()
+        } else {
+            base64Data = "eyJ2ZXJzaW9uIjoiMS4wIiwiY2F0ZWdvcmllcyI6W119" // Empty data
+        }
+        
         return """
         <!DOCTYPE html>
         <html>
@@ -354,7 +362,7 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
             <div class="snippet-wheel-popup" id="root"></div>
             <script>
                 // Snippet data injected from native (base64 encoded)
-                const SNIPPET_DATA_JSON = '\(snippetData.data(using: .utf8)!.base64EncodedString())';
+                const SNIPPET_DATA_JSON = '\(base64Data)';
                 const SNIPPET_DATA = JSON.parse(atob(SNIPPET_DATA_JSON));
                 
                 // Wheel state
@@ -690,20 +698,35 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
         // Remove existing monitor if any
         if let monitor = clickMonitor {
             NSEvent.removeMonitor(monitor)
+            clickMonitor = nil
         }
         
-        // Use global monitor to detect clicks outside the window
-        clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
-            guard let self = self else { return }
+        // Use local monitor to detect clicks in our window that should close it
+        // We add an invisible overlay view that handles clicks outside the wheel area
+        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            guard let self = self, event.window === self.window else { return event }
             
-            // Get mouse location in screen coordinates
-            let mouseLocation = NSEvent.mouseLocation
+            // Convert mouse location to window coordinates
+            let location = event.locationInWindow
             
-            // Check if click is inside our window frame
-            if !self.window.frame.contains(mouseLocation) {
-                // Click is outside, close the window
+            // Check if click is inside the wheel container (approximately)
+            // The wheel container is 600x600 centered in the window
+            let windowSize = self.window.frame.size
+            let wheelSize: CGFloat = 600
+            let wheelFrame = NSRect(
+                x: (windowSize.width - wheelSize) / 2,
+                y: (windowSize.height - wheelSize) / 2,
+                width: wheelSize,
+                height: wheelSize
+            )
+            
+            if !wheelFrame.contains(location) {
+                // Click is outside the wheel area, close the window
                 self.close()
+                return nil // Consume the event
             }
+            
+            return event
         }
     }
     
