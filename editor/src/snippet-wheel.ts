@@ -10,6 +10,22 @@ interface WheelItem {
   data?: Category | Snippet;
 }
 
+// Bridge interface for native communication
+declare global {
+  interface Window {
+    webkit?: {
+      messageHandlers?: {
+        snippetWheel?: {
+          postMessage: (data: any) => void;
+        };
+        promptEditor?: {
+          postMessage: (data: any) => void;
+        };
+      };
+    };
+  }
+}
+
 class SnippetWheel {
   private overlay: HTMLElement | null = null;
   private wheelContainer: HTMLElement | null = null;
@@ -19,6 +35,7 @@ class SnippetWheel {
   private currentItems: WheelItem[] = [];
   private editorView: EditorView | null = null;
   private onSelectSnippet: ((snippet: Snippet) => void) | null = null;
+  private isNativeMode = false;
 
   // Wheel configuration
   private readonly WHEEL_RADIUS = 180;
@@ -26,6 +43,7 @@ class SnippetWheel {
 
   constructor() {
     this.handleKeyDown = this.handleKeyDown.bind(this);
+    this.handleNativeMessage = this.handleNativeMessage.bind(this);
   }
 
   init(editorView: EditorView, onSelectSnippet?: (snippet: Snippet) => void): void {
@@ -35,7 +53,49 @@ class SnippetWheel {
     }
   }
 
+  /**
+   * Check if running in native app with snippet wheel support
+   */
+  private hasNativeSupport(): boolean {
+    return !!window.webkit?.messageHandlers?.promptEditor;
+  }
+
+  /**
+   * Show the snippet wheel
+   * In native mode: calls native code to show popup window
+   * In web mode: shows inline overlay
+   */
   show(): void {
+    if (this.hasNativeSupport()) {
+      // Native mode: tell the native app to show the wheel
+      this.showNativeWheel();
+    } else {
+      // Web mode: show inline overlay
+      this.showInlineWheel();
+    }
+  }
+
+  /**
+   * Show wheel using native popup window
+   */
+  private showNativeWheel(): void {
+    // Load snippet data and send to native
+    snippetManager.loadData().then(() => {
+      const data = snippetManager.getCategories();
+      const json = JSON.stringify({ type: 'showSnippetWheel', data });
+      
+      // Send to native via bridge
+      window.webkit?.messageHandlers?.promptEditor?.postMessage({
+        type: 'showSnippetWheel',
+        data: data
+      });
+    });
+  }
+
+  /**
+   * Show wheel as inline overlay (for web mode)
+   */
+  private showInlineWheel(): void {
     if (this.overlay) return;
 
     // Load data if not already loaded
@@ -43,6 +103,13 @@ class SnippetWheel {
       this.createOverlay();
       this.renderRoot();
     });
+  }
+
+  /**
+   * Handle messages from native code (when used as native popup)
+   */
+  private handleNativeMessage(event: MessageEvent): void {
+    // Handle any postMessage from native
   }
 
   hide(): void {

@@ -6,6 +6,7 @@ public class MainWindow: NSObject, WKScriptMessageHandler {
     public let window: NSWindow
     public let webView: WKWebView
     public var isPipeMode = false
+    private var snippetWheelWindow: SnippetWheelWindow?
 
     public override init() {
         // Calculate window frame: centered, 720x520
@@ -163,6 +164,8 @@ public class MainWindow: NSObject, WKScriptMessageHandler {
             handleReadFile(path: path, callback: callback)
         case .getRunningAgents(let callback):
             handleGetRunningAgents(callback: callback)
+        case .showSnippetWheel:
+            handleShowSnippetWheel()
         case .unknown:
             break
         }
@@ -242,5 +245,31 @@ public class MainWindow: NSObject, WKScriptMessageHandler {
                 print("JS Error: \(error)")
             }
         }
+    }
+    
+    // MARK: - Snippet Wheel
+    
+    private func handleShowSnippetWheel() {
+        // Create wheel window if needed
+        if snippetWheelWindow == nil {
+            snippetWheelWindow = SnippetWheelWindow()
+            
+            snippetWheelWindow?.onSnippetSelected = { [weak self] content in
+                // Insert the snippet content into the editor
+                self?.setContent(content)
+                self?.focusEditor()
+            }
+            
+            snippetWheelWindow?.onClose = { [weak self] in
+                // Return focus to main window
+                self?.window.makeKeyAndOrderFront(nil)
+                self?.focusEditor()
+            }
+        }
+        
+        // Load snippet data and show the wheel
+        let json = snippetManager.toJSON()
+        snippetWheelWindow?.injectSnippetData(json)
+        snippetWheelWindow?.show()
     }
 }

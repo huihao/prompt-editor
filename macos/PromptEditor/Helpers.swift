@@ -23,6 +23,7 @@ public enum Helpers {
         case showFolderPicker(callback: String)
         case readFile(path: String, callback: String)
         case getRunningAgents(callback: String)
+        case showSnippetWheel
         case unknown(String)
     }
 
@@ -60,6 +61,8 @@ public enum Helpers {
         case "getRunningAgents":
             let callback = dict["callback"] as? String ?? ""
             return .getRunningAgents(callback: callback)
+        case "showSnippetWheel":
+            return .showSnippetWheel
         default:
             return .unknown(action)
         }
