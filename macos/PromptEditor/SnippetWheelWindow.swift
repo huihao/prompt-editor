@@ -8,6 +8,7 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
     public let webView: WKWebView
     public var onSnippetSelected: ((String) -> Void)?
     public var onClose: (() -> Void)?
+    public var onManage: (() -> Void)?
     
     private let wheelRadius: CGFloat = 200
     private var clickMonitor: Any?
@@ -54,6 +55,9 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
         
         // Configure for transparency
         config.preferences.setValue(true, forKey: "allowsPictureInPictureMediaPlayback")
+        
+        // Use persistent data store for localStorage consistency
+        config.websiteDataStore = WKWebsiteDataStore.default()
         
         webView = WKWebView(frame: .zero, configuration: config)
         webView.translatesAutoresizingMaskIntoConstraints = false
@@ -129,13 +133,14 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                     left: 0;
                     width: 100%;
                     height: 100%;
-                    background: rgba(0, 0, 0, 0.3);
+                    background: rgba(0, 0, 0, 0.4);
+                    backdrop-filter: blur(4px);
                     cursor: default;
                 }
                 
                 @media (prefers-color-scheme: light) {
                     .wheel-background {
-                        background: rgba(0, 0, 0, 0.2);
+                        background: rgba(0, 0, 0, 0.3);
                     }
                 }
                 
@@ -147,17 +152,22 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                     flex-direction: column;
                     align-items: center;
                     justify-content: center;
-                    background: rgba(30, 30, 30, 0.85);
+                    background: rgba(30, 30, 30, 0.75);
                     backdrop-filter: blur(20px);
                     border-radius: 20px;
-                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+                    box-shadow: 
+                        0 25px 50px -12px rgba(0, 0, 0, 0.5), 
+                        0 0 0 1px rgba(255, 255, 255, 0.1);
                     cursor: default;
+                    pointer-events: auto;
                 }
                 
                 @media (prefers-color-scheme: light) {
                     .snippet-wheel-container {
-                        background: rgba(255, 255, 255, 0.9);
-                        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05);
+                        background: rgba(255, 255, 255, 0.85);
+                        box-shadow: 
+                            0 25px 50px -12px rgba(0, 0, 0, 0.25), 
+                            0 0 0 1px rgba(0, 0, 0, 0.05);
                     }
                 }
                 
@@ -211,58 +221,181 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                     opacity: 1;
                 }
                 
+                /* Manage button */
+                .snippet-wheel-manage {
+                    position: absolute;
+                    top: 20px;
+                    left: 20px;
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
+                    background: rgba(60, 60, 60, 0.8);
+                    border: 1px solid rgba(255, 255, 255, 0.15);
+                    color: #fff;
+                    font-size: 20px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.15s;
+                    z-index: 10;
+                }
+                
+                .snippet-wheel-manage:hover {
+                    background: #0066ff;
+                    border-color: #0066ff;
+                    transform: rotate(30deg);
+                }
+                
+                /* Close button */
+                .snippet-wheel-close {
+                    position: absolute;
+                    top: 20px;
+                    right: 20px;
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
+                    background: rgba(60, 60, 60, 0.8);
+                    border: 1px solid rgba(255, 255, 255, 0.15);
+                    color: #fff;
+                    font-size: 18px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.15s;
+                    z-index: 10;
+                }
+                
+                .snippet-wheel-close:hover {
+                    background: #ff3b30;
+                    border-color: #ff3b30;
+                    color: #fff;
+                }
+                
+                @media (prefers-color-scheme: light) {
+                    .snippet-wheel-manage {
+                        background: rgba(255, 255, 255, 0.9);
+                        border-color: rgba(0, 0, 0, 0.1);
+                        color: #1d1d1f;
+                    }
+                    .snippet-wheel-manage:hover {
+                        background: #0066ff;
+                        border-color: #0066ff;
+                        color: #fff;
+                    }
+                    .snippet-wheel-close {
+                        background: rgba(255, 255, 255, 0.9);
+                        border-color: rgba(0, 0, 0, 0.1);
+                        color: #1d1d1f;
+                    }
+                    .snippet-wheel-close:hover {
+                        background: #ff3b30;
+                        border-color: #ff3b30;
+                        color: #fff;
+                    }
+                }
+                
                 .snippet-wheel {
                     position: relative;
                     width: 400px;
                     height: 400px;
                 }
                 
+                /* Prominent center disc */
                 .snippet-wheel-center {
                     position: absolute;
                     top: 50%;
                     left: 50%;
                     transform: translate(-50%, -50%);
-                    width: 160px;
-                    height: 160px;
+                    width: 140px;
+                    height: 140px;
                     border-radius: 50%;
-                    background: rgba(60, 60, 60, 0.9);
-                    border: 2px solid rgba(255, 255, 255, 0.1);
+                    background: linear-gradient(145deg, #3a3a3c 0%, #2d2d2f 100%);
+                    border: 3px solid rgba(100, 181, 246, 0.4);
                     display: flex;
                     flex-direction: column;
                     align-items: center;
                     justify-content: center;
                     text-align: center;
-                    padding: 16px;
-                    z-index: 5;
-                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-                    transition: all 0.2s;
+                    padding: 12px;
+                    z-index: 10;
+                    box-shadow: 
+                        0 8px 32px rgba(0, 0, 0, 0.4),
+                        0 0 0 8px rgba(50, 50, 50, 0.3),
+                        inset 0 2px 4px rgba(255, 255, 255, 0.05),
+                        inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+                    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+                }
+
+                .snippet-wheel-center::before {
+                    content: '';
+                    position: absolute;
+                    top: -12px;
+                    left: -12px;
+                    right: -12px;
+                    bottom: -12px;
+                    border-radius: 50%;
+                    background: conic-gradient(from 0deg, transparent, rgba(100, 181, 246, 0.1), transparent);
+                    animation: rotate 10s linear infinite;
+                    z-index: -1;
+                }
+
+                @keyframes rotate {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
                 }
                 
                 @media (prefers-color-scheme: light) {
                     .snippet-wheel-center {
-                        background: rgba(245, 245, 247, 0.95);
-                        border-color: rgba(0, 0, 0, 0.1);
+                        background: linear-gradient(145deg, #ffffff 0%, #f0f0f5 100%);
+                        border-color: rgba(0, 102, 255, 0.3);
+                        box-shadow: 
+                            0 8px 32px rgba(0, 0, 0, 0.15),
+                            0 0 0 8px rgba(255, 255, 255, 0.5),
+                            inset 0 2px 4px rgba(255, 255, 255, 1),
+                            inset 0 -2px 4px rgba(0, 0, 0, 0.05);
+                    }
+                    .snippet-wheel-center::before {
+                        background: conic-gradient(from 0deg, transparent, rgba(0, 102, 255, 0.1), transparent);
                     }
                 }
                 
                 .snippet-wheel-center .center-icon {
-                    font-size: 32px;
-                    margin-bottom: 8px;
+                    font-size: 36px;
+                    margin-bottom: 6px;
+                    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
                 }
                 
                 .snippet-wheel-center .center-text {
-                    font-size: 14px;
-                    font-weight: 600;
+                    font-size: 13px;
+                    font-weight: 700;
                     margin-bottom: 4px;
                     line-height: 1.2;
+                    color: #f5f5f7;
+                    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+                }
+
+                @media (prefers-color-scheme: light) {
+                    .snippet-wheel-center .center-text {
+                        color: #1d1d1f;
+                        text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+                    }
                 }
                 
                 .snippet-wheel-center .center-desc {
-                    font-size: 11px;
-                    opacity: 0.7;
+                    font-size: 10px;
+                    color: #999;
                     line-height: 1.3;
-                    max-height: 40px;
+                    max-height: 36px;
                     overflow: hidden;
+                    padding: 0 4px;
+                }
+
+                @media (prefers-color-scheme: light) {
+                    .snippet-wheel-center .center-desc {
+                        color: #666;
+                    }
                 }
                 
                 .wheel-item {
@@ -275,24 +408,31 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                     margin-top: -40px;
                     border-radius: 50%;
                     background: rgba(50, 50, 50, 0.9);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border: 2px solid rgba(100, 181, 246, 0.3);
                     display: flex;
                     flex-direction: column;
                     align-items: center;
                     justify-content: center;
                     text-align: center;
                     cursor: pointer;
+                    pointer-events: auto;
+                    user-select: none;
                     transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
                     animation: scaleIn 0.3s ease backwards;
-                    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+                    box-shadow: 
+                        0 4px 15px rgba(0, 0, 0, 0.3), 
+                        inset 0 1px 0 rgba(255, 255, 255, 0.1);
                     backdrop-filter: blur(10px);
+                    z-index: 5;
                 }
                 
                 @media (prefers-color-scheme: light) {
                     .wheel-item {
-                        background: rgba(255, 255, 255, 0.9);
-                        border-color: rgba(0, 0, 0, 0.1);
-                        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+                        background: rgba(255, 255, 255, 0.95);
+                        border-color: rgba(0, 102, 255, 0.2);
+                        box-shadow: 
+                            0 4px 15px rgba(0, 0, 0, 0.1), 
+                            inset 0 1px 0 rgba(255, 255, 255, 0.8);
                     }
                 }
                 
@@ -540,15 +680,35 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                     const itemCount = currentItems.length;
                     
                     let wheelHTML = '<div class="snippet-wheel-container">';
+                    wheelHTML += '<div class="snippet-wheel-manage" id="manageBtn" title="Manage Snippets">⚙️</div>';
+                    wheelHTML += '<div class="snippet-wheel-close" id="closeBtn" title="Close">✕</div>';
                     wheelHTML += '<div class="snippet-wheel-breadcrumb" id="breadcrumb"></div>';
                     wheelHTML += '<div class="snippet-wheel">';
                     wheelHTML += '<div class="snippet-wheel-center" id="center">';
                     wheelHTML += '<div class="center-icon">🎯</div>';
                     wheelHTML += '<div class="center-text">Prompt Snippets</div>';
-                    wheelHTML += '<div class="center-desc">Select a category</div>';
+                    wheelHTML += '<div class="center-desc">Select a category<br>⚙️ to manage</div>';
                     wheelHTML += '</div></div></div>';
                     
                     root.innerHTML = wheelHTML;
+                    
+                    // Add manage button click handler
+                    const manageBtn = document.getElementById('manageBtn');
+                    if (manageBtn) {
+                        manageBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            window.webkit?.messageHandlers?.snippetWheel?.postMessage({ type: 'manage' });
+                        });
+                    }
+                    
+                    // Add close button click handler
+                    const closeBtn = document.getElementById('closeBtn');
+                    if (closeBtn) {
+                        closeBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            closeWheel();
+                        });
+                    }
                     
                     const wheelContainer = root.querySelector('.snippet-wheel');
                     const centerEl = document.getElementById('center');
@@ -781,6 +941,10 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
             if let content = body["content"] as? String {
                 onSnippetSelected?(content)
             }
+        case "manage":
+            // Close wheel and notify to open manager
+            onManage?()
+            close()
         case "close":
             close()
         default:

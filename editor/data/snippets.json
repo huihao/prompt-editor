@@ -2,6 +2,337 @@
   "version": "1.0",
   "categories": [
     {
+      "id": "ai-assistance",
+      "name": "AI Assistance",
+      "icon": "🤖",
+      "description": "与 AI 协作的最佳实践",
+      "subcategories": [
+        {
+          "id": "ai-context",
+          "name": "Context Management",
+          "icon": "📚",
+          "snippets": [
+            {
+              "id": "ai-context-first",
+              "name": "Provide Context First",
+              "description": "先提供上下文再提问",
+              "content": "在提问前，先提供相关的代码、错误信息或背景信息。这样我能更准确地理解问题并给出有针对性的回答。"
+            },
+            {
+              "id": "ai-step-by-step",
+              "name": "Step by Step Thinking",
+              "description": "要求 AI 逐步思考",
+              "content": "请逐步思考这个问题，解释你的推理过程。如果有多个解决方案，请列出它们的优缺点。"
+            },
+            {
+              "id": "ai-constraints",
+              "name": "Specify Constraints",
+              "description": "明确指定约束条件",
+              "content": "在给出解决方案时，请考虑以下约束条件：[列出约束，如性能要求、兼容性需求、技术栈限制等]"
+            }
+          ]
+        },
+        {
+          "id": "ai-code",
+          "name": "Code Assistance",
+          "icon": "💻",
+          "snippets": [
+            {
+              "id": "ai-explain-code",
+              "name": "Explain This Code",
+              "description": "解释代码的工作原理",
+              "content": "请解释这段代码的工作原理，包括：\n1. 整体功能是什么\n2. 关键逻辑和算法\n3. 任何需要注意的边缘情况"
+            },
+            {
+              "id": "ai-improve-code",
+              "name": "Suggest Improvements",
+              "description": "建议代码改进",
+              "content": "请审查这段代码并提出改进建议，关注：\n- 代码可读性和简洁性\n- 性能优化机会\n- 潜在的错误或边缘情况\n- 最佳实践的应用"
+            },
+            {
+              "id": "ai-alternatives",
+              "name": "Show Alternatives",
+              "description": "展示替代方案",
+              "content": "请展示实现相同功能的 2-3 种不同方法，比较它们的优缺点，并说明在什么情况下选择哪一种。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "debugging",
+      "name": "Debugging",
+      "icon": "🐛",
+      "description": "调试和故障排查",
+      "subcategories": [
+        {
+          "id": "debug-analysis",
+          "name": "Error Analysis",
+          "icon": "🔍",
+          "snippets": [
+            {
+              "id": "debug-stacktrace",
+              "name": "Analyze Stack Trace",
+              "description": "分析错误堆栈",
+              "content": "请分析以下错误信息和堆栈跟踪：\n\n[粘贴错误信息]\n\n请告诉我：\n1. 根本原因是什么\n2. 如何修复\n3. 如何预防类似问题"
+            },
+            {
+              "id": "debug-reproduce",
+              "name": "Reproduction Steps",
+              "description": "帮助重现问题",
+              "content": "我需要帮助重现一个 bug。已知症状：[描述症状]。请帮我：\n1. 分析可能的原因\n2. 提供重现步骤\n3. 建议调试方法或日志点"
+            },
+            {
+              "id": "debug-intermittent",
+              "name": "Intermittent Issues",
+              "description": "处理间歇性问题",
+              "content": "这个问题是间歇性发生的，症状：[描述]。请帮我：\n1. 列出可能导致间歇性行为的常见原因\n2. 建议添加的日志或监控\n3. 设计验证假设的实验"
+            }
+          ]
+        },
+        {
+          "id": "debug-performance",
+          "name": "Performance Debugging",
+          "icon": "⏱️",
+          "snippets": [
+            {
+              "id": "perf-slow-query",
+              "name": "Slow Query Analysis",
+              "description": "分析慢查询",
+              "content": "以下查询执行缓慢：[粘贴查询]。请分析：\n1. 为什么慢（缺少索引、全表扫描等）\n2. 优化建议\n3. 如何验证改进效果"
+            },
+            {
+              "id": "perf-memory",
+              "name": "Memory Issues",
+              "description": "内存问题排查",
+              "content": "应用出现内存问题（泄漏/使用过高）。请帮我：\n1. 识别常见的内存问题模式\n2. 建议分析工具和方法\n3. 提供排查清单"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "refactoring",
+      "name": "Refactoring",
+      "icon": "🔧",
+      "description": "代码重构和优化",
+      "subcategories": [
+        {
+          "id": "refactor-patterns",
+          "name": "Refactoring Patterns",
+          "icon": "🔄",
+          "snippets": [
+            {
+              "id": "refactor-extract",
+              "name": "Extract Method/Component",
+              "description": "提取方法或组件",
+              "content": "请帮我将这段代码重构为更小、更可重用的单元。目标：\n1. 单一职责原则\n2. 提高可测试性\n3. 保持原有功能不变"
+            },
+            {
+              "id": "refactor-simplify",
+              "name": "Simplify Complex Logic",
+              "description": "简化复杂逻辑",
+              "content": "这段代码过于复杂，请帮我：\n1. 简化条件逻辑\n2. 减少嵌套层级\n3. 使用更易读的命名和结构"
+            },
+            {
+              "id": "refactor-legacy",
+              "name": "Modernize Legacy Code",
+              "description": "现代化旧代码",
+              "content": "请帮我将这段旧代码现代化，使用当前最佳实践：\n1. 更新语法和 API 使用\n2. 利用现代语言特性\n3. 保持行为一致性"
+            }
+          ]
+        },
+        {
+          "id": "refactor-tech-debt",
+          "name": "Technical Debt",
+          "icon": "💳",
+          "snippets": [
+            {
+              "id": "debt-assessment",
+              "name": "Tech Debt Assessment",
+              "description": "技术债务评估",
+              "content": "请评估这段代码的技术债务：\n1. 严重程度评级（高/中/低）\n2. 优先修复建议\n3. 重构的成本和收益分析"
+            },
+            {
+              "id": "debt-migration",
+              "name": "Migration Strategy",
+              "description": "迁移策略",
+              "content": "我需要从 [旧技术] 迁移到 [新技术]。请提供：\n1. 逐步迁移计划\n2. 风险和缓解措施\n3. 验证方法"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "documentation",
+      "name": "Documentation",
+      "icon": "📖",
+      "description": "文档编写和维护",
+      "subcategories": [
+        {
+          "id": "docs-code",
+          "name": "Code Documentation",
+          "icon": "📝",
+          "snippets": [
+            {
+              "id": "docs-comments",
+              "name": "Write Good Comments",
+              "description": "编写好的注释",
+              "content": "请为这段代码添加清晰、有用的注释：\n1. 解释'为什么'而不是'做什么'\n2. 记录复杂的业务逻辑\n3. 标注 TODO 和 FIXME"
+            },
+            {
+              "id": "docs-api",
+              "name": "API Documentation",
+              "description": "API 文档",
+              "content": "请为以下 API 端点编写文档：\n1. 端点描述和用途\n2. 请求参数和示例\n3. 响应格式和错误码\n4. 使用示例"
+            },
+            {
+              "id": "docs-readme",
+              "name": "README Template",
+              "description": "README 模板",
+              "content": "请为这个项目生成一个 README，包含：\n1. 项目概述和目的\n2. 安装和设置说明\n3. 基本使用示例\n4. 主要功能特性\n5. 贡献指南（如适用）"
+            }
+          ]
+        },
+        {
+          "id": "docs-adr",
+          "name": "Architecture Decision Records",
+          "icon": "📋",
+          "snippets": [
+            {
+              "id": "adr-template",
+              "name": "ADR Template",
+              "description": "架构决策记录模板",
+              "content": "请帮我编写一个 ADR（架构决策记录）：\n\n标题：[决策标题]\n\n## 背景\n[需要做出决策的背景]\n\n## 决策\n[所做的决策]\n\n## 后果\n[此决策的影响]\n\n## 替代方案\n[考虑过的其他选项及未选择的原因]"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "testing",
+      "name": "Testing",
+      "icon": "🧪",
+      "description": "测试策略和最佳实践",
+      "subcategories": [
+        {
+          "id": "test-strategy",
+          "name": "Test Strategy",
+          "icon": "🎯",
+          "snippets": [
+            {
+              "id": "test-plan",
+              "name": "Test Plan",
+              "description": "测试计划",
+              "content": "请为这个功能/模块制定测试计划：\n1. 需要哪些类型的测试（单元/集成/E2E）\n2. 关键测试场景\n3. 边界情况和错误路径\n4. 测试数据需求"
+            },
+            {
+              "id": "test-coverage",
+              "name": "Coverage Strategy",
+              "description": "覆盖率策略",
+              "content": "关于测试覆盖率，请建议：\n1. 哪些代码路径必须覆盖\n2. 合理的覆盖率目标\n3. 如何处理难以测试的代码\n4. 覆盖率报告解读"
+            }
+          ]
+        },
+        {
+          "id": "test-implementation",
+          "name": "Test Implementation",
+          "icon": "✍️",
+          "snippets": [
+            {
+              "id": "test-unit",
+              "name": "Unit Test Template",
+              "description": "单元测试模板",
+              "content": "请为以下函数编写单元测试：\n1. 正常路径测试\n2. 边界条件测试\n3. 错误处理测试\n4. 使用合适的断言和测试结构"
+            },
+            {
+              "id": "test-mock",
+              "name": "Mock/Stub Strategy",
+              "description": "Mock 策略",
+              "content": "在测试这段代码时，请建议：\n1. 哪些依赖需要 mock\n2. 如何创建有效的测试替身\n3. 避免过度 mock 的建议"
+            },
+            {
+              "id": "test-fixture",
+              "name": "Test Fixtures",
+              "description": "测试夹具",
+              "content": "请帮我设计测试夹具：\n1. 创建可重用的测试数据\n2. 设置和清理逻辑\n3. 共享测试资源的策略"
+            }
+          ]
+        },
+        {
+          "id": "test-specific",
+          "name": "Specific Test Types",
+          "icon": "🔬",
+          "snippets": [
+            {
+              "id": "test-contract",
+              "name": "Contract Tests",
+              "description": "契约测试",
+              "content": "请为这个 API 设计契约测试：\n1. 消费者期望的接口契约\n2. 提供者契约验证\n3. 契约变更管理策略"
+            },
+            {
+              "id": "test-property",
+              "name": "Property-Based Tests",
+              "description": "基于属性的测试",
+              "content": "请为这个功能设计基于属性的测试：\n1. 应该始终保持不变的属性\n2. 随机数据生成策略\n3. 缩小小失败案例的方法"
+            },
+            {
+              "id": "test-snapshot",
+              "name": "Snapshot Testing",
+              "description": "快照测试",
+              "content": "评估是否适合使用快照测试：\n1. 何时使用快照测试\n2. 快照维护策略\n3. 避免快照测试滥用的建议"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "git-workflow",
+      "name": "Git Workflow",
+      "icon": "🌿",
+      "description": "Git 工作流和版本控制",
+      "subcategories": [
+        {
+          "id": "git-commit",
+          "name": "Commit Messages",
+          "icon": "💬",
+          "snippets": [
+            {
+              "id": "git-commit-conventional",
+              "name": "Conventional Commits",
+              "description": "约定式提交",
+              "content": "请帮我撰写符合 Conventional Commits 规范的提交信息：\n\n格式：<type>(<scope>): <description>\n\n[可选的详细说明]\n\n[可选的 Footer]\n\ntype: feat|fix|docs|style|refactor|test|chore"
+            },
+            {
+              "id": "git-commit-review",
+              "name": "Commit Self-Review",
+              "description": "提交前自查",
+              "content": "在提交前，请检查：\n1. 提交信息是否清晰描述变更\n2. 是否包含不相关的更改\n3. 是否需要拆分提交\n4. 是否遗漏了应该提交的文件"
+            }
+          ]
+        },
+        {
+          "id": "git-pr",
+          "name": "Pull Requests",
+          "icon": "🔀",
+          "snippets": [
+            {
+              "id": "git-pr-template",
+              "name": "PR Description",
+              "description": "PR 描述模板",
+              "content": "请帮我撰写 PR 描述，包含：\n\n## 变更内容\n[简要描述做了什么]\n\n## 动机\n[为什么要做这个变更]\n\n## 测试\n[如何验证的]\n\n## 检查清单\n- [ ] 代码自审完成\n- [ ] 测试通过\n- [ ] 文档已更新"
+            },
+            {
+              "id": "git-pr-review",
+              "name": "PR Review",
+              "description": "PR 审查建议",
+              "content": "作为审查者，请检查：\n1. 代码逻辑是否正确\n2. 是否有足够的测试覆盖\n3. 是否遵循项目规范\n4. 是否有潜在的性能或安全问题\n5. 是否保持向后兼容"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "security",
       "name": "Security",
       "icon": "🔒",

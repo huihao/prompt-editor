@@ -30,6 +30,7 @@ import {
   getFilledContent,
 } from './template-edit-mode';
 import { showSnippetWheel, hideSnippetWheel, isSnippetWheelVisible } from './snippet-wheel';
+import { snippetManagerUI } from './snippet-manager-ui';
 import type { Snippet } from './snippet-manager';
 
 const STORAGE_KEY = 'promptEditor:draft';
@@ -595,6 +596,12 @@ document.getElementById('btn-snippets')!.addEventListener('click', () => {
   });
 });
 
+// Snippet Manager - Shift+Click on snippets button
+document.getElementById('btn-snippets')!.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  snippetManagerUI.open();
+});
+
 // Template button
 document.getElementById('btn-templates')!.addEventListener('click', () => {
   showTemplatePanel();
@@ -828,3 +835,6 @@ document.addEventListener('cut', (e) => {
 document.addEventListener('paste', (e) => {
   console.log('Paste event triggered');
 });
+
+// Expose snippetManagerUI to global window for native access
+(window as any).snippetManagerUI = snippetManagerUI;

@@ -44,6 +44,9 @@ public class MainWindow: NSObject, WKScriptMessageHandler {
         // Enable developer tools and preferences
         config.preferences.javaScriptEnabled = true
         
+        // Use persistent data store for localStorage to work properly with file URLs
+        config.websiteDataStore = WKWebsiteDataStore.default()
+        
         webView = WKWebView(frame: .zero, configuration: config)
         webView.translatesAutoresizingMaskIntoConstraints = false
 
@@ -265,11 +268,22 @@ public class MainWindow: NSObject, WKScriptMessageHandler {
                 self?.window.makeKeyAndOrderFront(nil)
                 self?.focusEditor()
             }
+            
+            snippetWheelWindow?.onManage = { [weak self] in
+                // Return focus to main window and open snippet manager
+                self?.window.makeKeyAndOrderFront(nil)
+                // Call JavaScript to open snippet manager
+                self?.webView.evaluateJavaScript("window.snippetManagerUI?.open() || console.log('snippetManagerUI not available')")
+            }
         }
         
-        // Load snippet data and show the wheel
-        let json = snippetManager.toJSON()
-        snippetWheelWindow?.injectSnippetData(json)
-        snippetWheelWindow?.show()
+        // Load snippet data from WebView (includes user custom data from localStorage)
+        webView.evaluateJavaScript("window.snippetManager?.exportData() || '{\"version\":\"1.0\",\"categories\":[]}'") { [weak self] result, error in
+            let json = (result as? String) ?? snippetManager.toJSON()
+            DispatchQueue.main.async {
+                self?.snippetWheelWindow?.injectSnippetData(json)
+                self?.snippetWheelWindow?.show()
+            }
+        }
     }
 }

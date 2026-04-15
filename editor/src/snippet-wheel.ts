@@ -1,4 +1,5 @@
 import { snippetManager, Category, Snippet } from './snippet-manager';
+import { snippetManagerUI } from './snippet-manager-ui';
 import { EditorView } from '@codemirror/view';
 
 interface WheelItem {
@@ -135,13 +136,14 @@ class SnippetWheel {
       <div class="snippet-wheel-container">
         <div class="snippet-wheel-breadcrumb"></div>
         <div class="snippet-wheel-close">&times;</div>
+        <div class="snippet-wheel-manage" title="Manage Snippets">⚙️</div>
         <div class="snippet-wheel">
           <div class="snippet-wheel-center">
             <div class="center-icon">🎯</div>
             <div class="center-text">Select</div>
           </div>
         </div>
-        <div class="snippet-wheel-hint">Click category to explore • Click snippet to insert</div>
+        <div class="snippet-wheel-hint">Click category to explore • Click snippet to insert • ⚙️ to manage</div>
       </div>
     `;
 
@@ -154,6 +156,14 @@ class SnippetWheel {
     // Close button
     const closeBtn = this.overlay.querySelector('.snippet-wheel-close') as HTMLElement;
     closeBtn.addEventListener('click', () => this.hide());
+
+    // Manage button
+    const manageBtn = this.overlay.querySelector('.snippet-wheel-manage') as HTMLElement;
+    manageBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.hide();
+      snippetManagerUI.open();
+    });
 
     // Click outside to close
     this.overlay.addEventListener('click', (e) => {

@@ -50,7 +50,7 @@ if [ "$PLATFORM" = "macos" ]; then
     echo ""
     echo "--- Building macOS app ---"
     cd macos
-    swift build -c release
+    swift build -c release --arch arm64
     echo "macOS app built."
 
     # Create .app bundle
