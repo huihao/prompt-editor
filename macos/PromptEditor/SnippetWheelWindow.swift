@@ -525,7 +525,11 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
             <script>
                 // Snippet data injected from native (base64 encoded)
                 const SNIPPET_DATA_JSON = '\(base64Data)';
-                const SNIPPET_DATA = JSON.parse(atob(SNIPPET_DATA_JSON));
+                const SNIPPET_DATA = JSON.parse(
+                    new TextDecoder().decode(
+                        Uint8Array.from(atob(SNIPPET_DATA_JSON), c => c.charCodeAt(0))
+                    )
+                );
                 
                 // Wheel state
                 let currentCategoryId = null;
