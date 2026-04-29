@@ -15,8 +15,8 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        // Hide from Dock
-        NSApp.setActivationPolicy(.accessory)
+        // Show in Dock
+        NSApp.setActivationPolicy(.regular)
         
         // Setup minimal main menu for edit commands to work in WebView
         setupMainMenu()

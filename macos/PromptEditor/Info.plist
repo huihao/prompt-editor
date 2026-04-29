@@ -21,7 +21,7 @@
     <key>LSMinimumSystemVersion</key>
     <string>12.0</string>
     <key>LSUIElement</key>
-    <true/>
+    <false/>
     <key>NSAppleEventsUsageDescription</key>
     <string>Prompt Editor needs accessibility access to simulate paste to your terminal.</string>
     <key>NSMainNibFile</key>
