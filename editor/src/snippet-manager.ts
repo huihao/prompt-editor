@@ -1,6 +1,8 @@
 // Snippet Manager - Manages prompt snippets with hierarchical categories
 // Supports CRUD operations and persists user changes to localStorage
 
+import logger from './logger';
+
 export interface Snippet {
   id: string;
   name: string;
@@ -32,26 +34,41 @@ class SnippetManager {
   private isLoaded = false;
 
   async loadData(): Promise<void> {
-    if (this.isLoaded) return;
-    
+    if (this.isLoaded) {
+      logger.info('SnippetManager', 'Data already loaded, skipping');
+      return;
+    }
+
     try {
-      // Load built-in snippets from JSON
-      const response = await fetch('data/snippets.json');
-      if (!response.ok) {
-        throw new Error(`Failed to load snippets: ${response.status}`);
+      logger.info('SnippetManager', 'Starting to load snippet data');
+
+      // Try to load built-in snippets from JSON file
+      // In WKWebView (macOS app), this might fail due to security restrictions
+      try {
+        const response = await fetch('data/snippets.json');
+        if (!response.ok) {
+          throw new Error(`Failed to load snippets: ${response.status}`);
+        }
+        this.data = await response.json();
+        logger.info('SnippetManager', 'Built-in data loaded from file', { categoryCount: this.data?.categories?.length });
+      } catch (fetchError) {
+        logger.warn('SnippetManager', 'Cannot fetch snippets.json, using embedded default data', { error: String(fetchError) });
+        // Use embedded default snippets data when fetch fails (WKWebView file:// restriction)
+        this.data = this.getDefaultSnippets();
+        logger.info('SnippetManager', 'Embedded default data loaded', { categoryCount: this.data?.categories?.length });
       }
-      this.data = await response.json();
-      
+
       // Load user custom snippets from localStorage
       this.loadUserData();
-      
+
       // Merge user data with built-in data
       this.mergeData();
-      
+
       this.buildMaps();
       this.isLoaded = true;
+      logger.info('SnippetManager', 'Data loading complete', { snippetCount: this.snippetMap.size, categoryCount: this.categoryMap.size });
     } catch (error) {
-      console.error('Failed to load snippet data:', error);
+      logger.error('SnippetManager', 'Failed to load snippet data', { error: String(error) });
       this.data = { version: '1.0', categories: [] };
       this.loadUserData();
       this.mergeData();
@@ -60,27 +77,125 @@ class SnippetManager {
     }
   }
 
+  private getDefaultSnippets(): SnippetData {
+    // Embedded default snippets data for WKWebView environments
+    // This is used when fetch('data/snippets.json') fails due to security restrictions
+    return {
+      version: '1.0',
+      categories: [
+        {
+          id: 'ai-assistance',
+          name: 'AI Assistance',
+          icon: '🤖',
+          description: '与 AI 协作的最佳实践',
+          subcategories: [
+            {
+              id: 'ai-context',
+              name: 'Context Management',
+              icon: '📚',
+              snippets: [
+                {
+                  id: 'ai-context-first',
+                  name: 'Provide Context First',
+                  description: '先提供上下文再提问',
+                  content: '在提问前，先提供相关的代码、错误信息或背景信息。这样我能更准确地理解问题并给出有针对性的回答。'
+                }
+              ]
+            }
+          ]
+        },
+        {
+          id: 'debugging',
+          name: 'Debugging',
+          icon: '🐛',
+          description: '调试和故障排查',
+          subcategories: [
+            {
+              id: 'debug-analysis',
+              name: 'Error Analysis',
+              icon: '🔍',
+              snippets: [
+                {
+                  id: 'debug-stacktrace',
+                  name: 'Analyze Stack Trace',
+                  description: '分析错误堆栈',
+                  content: '请分析以下错误信息和堆栈跟踪：\n\n[粘贴错误信息]\n\n请告诉我：\n1. 根本原因是什么\n2. 如何修复\n3. 如何预防类似问题'
+                }
+              ]
+            }
+          ]
+        },
+        {
+          id: 'refactoring',
+          name: 'Refactoring',
+          icon: '🔧',
+          description: '代码重构和优化'
+        },
+        {
+          id: 'testing',
+          name: 'Testing',
+          icon: '🧪',
+          description: '测试策略和最佳实践'
+        },
+        {
+          id: 'git-workflow',
+          name: 'Git Workflow',
+          icon: '🌿',
+          description: 'Git 工作流和版本控制'
+        },
+        {
+          id: 'security',
+          name: 'Security',
+          icon: '🔒',
+          description: 'Security checks and best practices'
+        },
+        {
+          id: 'code-quality',
+          name: 'Code Quality',
+          icon: '✨',
+          description: 'Code quality and best practices'
+        },
+        {
+          id: 'architecture',
+          name: 'Architecture',
+          icon: '🏗️',
+          description: 'Architecture and design patterns'
+        }
+      ]
+    };
+  }
+
   private loadUserData(): void {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
+      logger.info('SnippetManager', 'Loading user data from localStorage', { hasData: !!stored });
       if (stored) {
         this.userData = JSON.parse(stored);
+        logger.info('SnippetManager', 'User data loaded', { categoryCount: this.userData?.categories?.length });
       } else {
         this.userData = { version: '1.0', categories: [] };
+        logger.info('SnippetManager', 'No user data found, initialized empty structure');
       }
     } catch (error) {
-      console.error('Failed to load user snippets:', error);
+      logger.error('SnippetManager', 'Failed to load user snippets', { error: String(error) });
       this.userData = { version: '1.0', categories: [] };
     }
   }
 
   private saveUserData(): void {
     try {
+      logger.info('SnippetManager', 'Saving user data to localStorage', { categoryCount: this.userData?.categories?.length });
       if (this.userData) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.userData));
+        const jsonData = JSON.stringify(this.userData);
+        logger.debug('SnippetManager', 'User data serialized', { size: jsonData.length });
+        localStorage.setItem(STORAGE_KEY, jsonData);
+        logger.info('SnippetManager', 'User data saved successfully');
+      } else {
+        logger.warn('SnippetManager', 'No user data to save');
       }
     } catch (error) {
-      console.error('Failed to save user snippets:', error);
+      logger.error('SnippetManager', 'Failed to save user snippets', { error: String(error), storageKey: STORAGE_KEY });
+      throw error; // Re-throw to let caller know save failed
     }
   }
 
@@ -301,55 +416,62 @@ class SnippetManager {
 
   // Add a new category
   async addCategory(category: Category, parentId?: string): Promise<boolean> {
-    console.log('[SnippetManager] addCategory called:', category, 'parentId:', parentId);
+    logger.info('SnippetManager', 'addCategory called', { categoryId: category.id, name: category.name, parentId });
     this.ensureLoaded();
-    
+
     if (!this.userData) {
-      console.log('[SnippetManager] Initializing userData');
+      logger.info('SnippetManager', 'Initializing userData');
       this.userData = { version: '1.0', categories: [] };
     }
 
     // Check for duplicate ID
     if (this.categoryMap.has(category.id)) {
-      console.error(`[SnippetManager] Category with id ${category.id} already exists`);
+      logger.error('SnippetManager', 'Category with id already exists', { categoryId: category.id });
       return false;
     }
 
     if (parentId) {
+      logger.info('SnippetManager', 'Adding to parent category', { parentId });
       // Add to parent category
       const userParent = this.findCategoryInUserData(parentId);
       if (userParent) {
         userParent.subcategories = userParent.subcategories || [];
         userParent.subcategories.push(category);
-        console.log('[SnippetManager] Added to parent subcategories');
+        logger.info('SnippetManager', 'Added to existing parent in user data', { parentId, newSubcategoryCount: userParent.subcategories.length });
       } else {
         // Parent is from built-in data, clone it to user data first
         const builtInParent = this.categoryMap.get(parentId);
         if (builtInParent) {
+          logger.info('SnippetManager', 'Cloning built-in parent to user data', { parentId });
           const clonedParent = this.cloneCategoryStructure(builtInParent.id);
           if (clonedParent) {
-            clonedParent.subcategories = [category];
+            clonedParent.subcategories = clonedParent.subcategories || [];
+            clonedParent.subcategories.push(category);
             this.addCategoryToUserData(clonedParent);
-            console.log('[SnippetManager] Cloned parent and added category to it');
+            logger.info('SnippetManager', 'Cloned parent and added category', { parentId, subcategoryCount: clonedParent.subcategories.length });
           } else {
+            logger.error('SnippetManager', 'Failed to clone parent, adding to root', { parentId });
             this.userData.categories.push(category);
-            console.log('[SnippetManager] Failed to clone parent, added to root');
           }
         } else {
+          logger.warn('SnippetManager', 'Parent not found, adding to root', { parentId });
           // Parent not found at all, add to root
           this.userData.categories.push(category);
-          console.log('[SnippetManager] Parent not found, added to root');
         }
       }
     } else {
+      logger.info('SnippetManager', 'Adding to root categories');
       // Add to root
       this.userData.categories.push(category);
-      console.log('[SnippetManager] Added to root categories');
     }
 
+    logger.info('SnippetManager', 'Calling saveUserData');
     this.saveUserData();
+
+    logger.info('SnippetManager', 'Calling reloadData');
     await this.reloadData();
-    console.log('[SnippetManager] Category saved successfully');
+
+    logger.info('SnippetManager', 'Category saved successfully', { categoryId: category.id });
     return true;
   }
 
@@ -594,13 +716,15 @@ class SnippetManager {
     const category = this.categoryMap.get(categoryId);
     if (!category) return null;
 
+    // Clone the category, keeping its existing structure
+    // Note: We only clone the structure for userData, the original built-in data stays unchanged
     return {
       id: category.id,
       name: category.name,
       icon: category.icon,
       description: category.description,
-      snippets: [],
-      subcategories: undefined
+      snippets: category.snippets ? [...category.snippets] : [],
+      subcategories: category.subcategories ? [...category.subcategories] : undefined
     };
   }
 
@@ -633,3 +757,8 @@ class SnippetManager {
 
 export const snippetManager = new SnippetManager();
 export default snippetManager;
+
+// Expose snippetManager to global window for native access
+if (typeof window !== 'undefined') {
+  (window as any).snippetManager = snippetManager;
+}
