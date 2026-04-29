@@ -35,6 +35,50 @@ import type { Snippet } from './snippet-manager';
 
 const STORAGE_KEY = 'promptEditor:draft';
 
+// Diagnostic function for debugging
+(window as any).diagnosticSnippetManager = () => {
+  console.log("=== Snippet Manager Diagnostic ===");
+
+  const logsBtn = document.getElementById('btn-logs');
+  const overlay = document.querySelector('.snippet-manager-overlay');
+
+  const report = {
+    uiOpen: !!overlay,
+    logsButtonExists: !!logsBtn,
+    logsButtonHTML: logsBtn?.outerHTML,
+    toolbarHTML: document.querySelector('.snippet-manager-toolbar')?.innerHTML?.substring(0, 200),
+    currentView: snippetManagerUI['currentView'],
+    overlayState: !!snippetManagerUI['overlay']
+  };
+
+  console.log("Diagnostic Report:", report);
+
+  if (!logsBtn && overlay) {
+    console.error("❌ Logs button NOT found, but UI is open!");
+    console.log("Attempting to manually add logs button...");
+
+    const toolbar = document.querySelector('.snippet-manager-toolbar');
+    if (toolbar) {
+      const spacer = toolbar.querySelector('.toolbar-spacer');
+      if (spacer) {
+        const logsButton = document.createElement('button');
+        logsButton.className = 'btn btn-icon';
+        logsButton.id = 'btn-logs';
+        logsButton.title = 'View Logs';
+        logsButton.textContent = '📋';
+        logsButton.onclick = () => {
+          console.log('[Manual] Logs button clicked');
+          snippetManagerUI['showLogsView']();
+        };
+        spacer.after(logsButton);
+        console.log("✓ Logs button manually added");
+      }
+    }
+  }
+
+  return report;
+};
+
 // Restore saved draft
 const savedDraft = localStorage.getItem(STORAGE_KEY) ?? '';
 

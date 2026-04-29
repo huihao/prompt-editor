@@ -3303,6 +3303,49 @@
       margin-bottom: 8px;
     }
 
+    /* Logs View */
+    .logs-view {
+      padding: 20px;
+    }
+
+    .logs-view h4 {
+      margin: 0 0 16px 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .logs-toolbar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .logs-content {
+      flex: 1;
+    }
+
+    .logs-content textarea {
+      width: 100%;
+      font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+      font-size: 12px;
+      padding: 12px;
+      border: 1px solid var(--border, #e5e5e5);
+      border-radius: 8px;
+      background: var(--bg, #ffffff);
+      color: var(--fg, #333333);
+      resize: vertical;
+      min-height: 300px;
+    }
+
+    .btn-warning {
+      background: #ff9500;
+      color: white;
+    }
+
+    .btn-warning:hover {
+      background: #ff7b00;
+    }
+
     /* Dark theme for snippet manager */
     @media (prefers-color-scheme: dark) {
       .snippet-manager-modal {
@@ -3337,6 +3380,12 @@
 
       .tree-count {
         background: var(--btn-bg, #2d2d2d);
+      }
+
+      .logs-content textarea {
+        background: var(--bg, #1e1e1e);
+        border-color: var(--border, #3e3e3e);
+        color: var(--fg, #d4d4d4);
       }
     }
 
