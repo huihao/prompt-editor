@@ -61,6 +61,7 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
         
         webView = WKWebView(frame: .zero, configuration: config)
         webView.translatesAutoresizingMaskIntoConstraints = false
+        webView.setValue(false, forKey: "drawsBackground")
         
         super.init()
         
@@ -133,15 +134,8 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                     left: 0;
                     width: 100%;
                     height: 100%;
-                    background: rgba(0, 0, 0, 0.4);
-                    backdrop-filter: blur(4px);
+                    background: transparent;
                     cursor: default;
-                }
-                
-                @media (prefers-color-scheme: light) {
-                    .wheel-background {
-                        background: rgba(0, 0, 0, 0.3);
-                    }
                 }
                 
                 .snippet-wheel-container {
@@ -152,23 +146,10 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                     flex-direction: column;
                     align-items: center;
                     justify-content: center;
-                    background: rgba(30, 30, 30, 0.75);
-                    backdrop-filter: blur(20px);
+                    background: transparent;
                     border-radius: 20px;
-                    box-shadow: 
-                        0 25px 50px -12px rgba(0, 0, 0, 0.5), 
-                        0 0 0 1px rgba(255, 255, 255, 0.1);
                     cursor: default;
                     pointer-events: auto;
-                }
-                
-                @media (prefers-color-scheme: light) {
-                    .snippet-wheel-container {
-                        background: rgba(255, 255, 255, 0.85);
-                        box-shadow: 
-                            0 25px 50px -12px rgba(0, 0, 0, 0.25), 
-                            0 0 0 1px rgba(0, 0, 0, 0.05);
-                    }
                 }
                 
                 .snippet-wheel-breadcrumb {
@@ -182,19 +163,18 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                     font-size: 14px;
                     color: var(--fg, #d4d4d4);
                     padding: 8px 16px;
-                    background: rgba(255, 255, 255, 0.1);
+                    background: transparent;
                     border: 1px solid rgba(255, 255, 255, 0.15);
                     border-radius: 20px;
                     max-width: 90%;
                     flex-wrap: wrap;
                     justify-content: center;
-                    backdrop-filter: blur(10px);
                 }
                 
                 @media (prefers-color-scheme: light) {
                     .snippet-wheel-breadcrumb {
                         color: #1d1d1f;
-                        background: rgba(0, 0, 0, 0.05);
+                        background: transparent;
                         border-color: rgba(0, 0, 0, 0.1);
                     }
                 }
