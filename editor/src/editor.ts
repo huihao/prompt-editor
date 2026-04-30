@@ -376,7 +376,7 @@ async function showConfirmDialog(content: string) {
   
   // 根据 Agent 设置默认的内联选项
   const agentConfigs = bridge.getAgentConfigs();
-  const selectedConfig = agentConfigs.find(a => a.id === currentTarget);
+  const selectedConfig = agentConfigs.find(a => a.id === currentValue);
   if (confirmInlineFiles && selectedConfig) {
     confirmInlineFiles.checked = selectedConfig.defaultIncludeContent;
   }

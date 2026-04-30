@@ -117,13 +117,6 @@ public enum TerminalSender {
             finalContent = content
         }
 
-        // Only try tmux if the target is a terminal
-        if terminalTarget.isTerminal && TmuxDetector.hasActiveTmux() {
-            NSLog("PromptEditor: Using tmux send-keys")
-            sendViaTmux(content: finalContent, completion: completion)
-            return
-        }
-
         switch terminalTarget {
         case .iterm2:
             NSLog("PromptEditor: Using iTerm2 AppleScript")

@@ -226,19 +226,8 @@ public enum AgentDetector {
     }
     
     /// Detect which terminal app a process is running in (synchronous, call from background task only)
+    /// Walks up the process tree to find a known terminal application.
     private static func detectTerminalApp(for process: ProcessInfo) -> String? {
-        // Get parent process info to find terminal using non-blocking approach
-        guard let ppidStr = runProcessCommand(executable: "/bin/ps", arguments: ["-o", "ppid=", "-p", String(process.pid)]),
-              let ppid = Int32(ppidStr) else {
-            return nil
-        }
-        
-        // Get parent process command
-        guard let parentComm = runProcessCommand(executable: "/bin/ps", arguments: ["-o", "comm=", "-p", String(ppid)]) else {
-            return nil
-        }
-        
-        // Map common terminal apps
         let terminalNames: [String: String] = [
             "iTerm2": "iTerm2",
             "Terminal": "Terminal",
@@ -248,12 +237,36 @@ public enum AgentDetector {
             "tmux": "tmux"
         ]
         
-        for (key, name) in terminalNames {
-            if parentComm.contains(key) {
-                return name
+        var currentPID = process.pid
+        // Prevent infinite loops by limiting iterations
+        for _ in 0..<20 {
+            guard let ppidStr = runProcessCommand(executable: "/bin/ps", arguments: ["-o", "ppid=", "-p", String(currentPID)]),
+                  let ppid = Int32(ppidStr.trimmingCharacters(in: .whitespacesAndNewlines)),
+                  ppid > 1 else {
+                break
             }
+            
+            guard let parentComm = runProcessCommand(executable: "/bin/ps", arguments: ["-o", "comm=", "-p", String(ppid)]) else {
+                break
+            }
+            
+            let trimmedComm = parentComm.trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            for (key, name) in terminalNames {
+                if trimmedComm.contains(key) {
+                    return name
+                }
+            }
+            
+            // Stop if we've reached launchd or a root-level process
+            if ppid == currentPID {
+                break
+            }
+            
+            currentPID = ppid
         }
-        return parentComm
+        
+        return nil
     }
     
     /// Helper to run a process command with timeout
