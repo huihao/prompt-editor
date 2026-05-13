@@ -215,7 +215,7 @@ class TemplateManagerUI {
       name: 'New Template',
       description: '',
       category: 'other',
-      content: '请帮我{{action!:select=审查,重构,优化,解释 = 审查}}当前代码。',
+      content: '请帮我{{action!:select=审查,重构,优化,解释=审查}}当前代码。',
       variables: [],
       tags: [],
       isBuiltin: false,
@@ -344,6 +344,11 @@ class TemplateManagerUI {
     this.updateVariablesPreview();
     this.updatePreview();
     this.attachEditorEventListeners();
+
+    // 自动聚焦到第一个输入框
+    setTimeout(() => {
+      document.getElementById('edit-name')?.focus();
+    }, 50);
   }
 
   /**
@@ -438,6 +443,29 @@ class TemplateManagerUI {
     // 保存
     document.getElementById('btn-save-template')?.addEventListener('click', () => {
       this.saveTemplate();
+    });
+
+    // 绑定输入框事件，实时同步到状态
+    const nameInput = document.getElementById('edit-name') as HTMLInputElement;
+    const descInput = document.getElementById('edit-description') as HTMLInputElement;
+    const categorySelect = document.getElementById('edit-category') as HTMLSelectElement;
+
+    nameInput?.addEventListener('input', (e) => {
+      if (this.state.editingTemplate) {
+        this.state.editingTemplate.name = (e.target as HTMLInputElement).value;
+      }
+    });
+
+    descInput?.addEventListener('input', (e) => {
+      if (this.state.editingTemplate) {
+        this.state.editingTemplate.description = (e.target as HTMLInputElement).value;
+      }
+    });
+
+    categorySelect?.addEventListener('change', (e) => {
+      if (this.state.editingTemplate) {
+        this.state.editingTemplate.category = (e.target as HTMLSelectElement).value;
+      }
     });
   }
 

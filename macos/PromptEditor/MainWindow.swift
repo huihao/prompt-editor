@@ -2,7 +2,7 @@ import Cocoa
 import WebKit
 import PromptEditorCore
 
-public class MainWindow: NSObject, WKScriptMessageHandler {
+public class MainWindow: NSObject, WKScriptMessageHandler, NSWindowDelegate {
     public let window: NSWindow
     public let webView: WKWebView
     public var isPipeMode = false
@@ -51,6 +51,9 @@ public class MainWindow: NSObject, WKScriptMessageHandler {
         webView.translatesAutoresizingMaskIntoConstraints = false
 
         super.init()
+
+        // Set window delegate for focus management
+        window.delegate = self
 
         // Add message handler for JS bridge
         userContentController.add(self, name: "promptEditor")
@@ -108,6 +111,14 @@ public class MainWindow: NSObject, WKScriptMessageHandler {
 
     public func focusEditor() {
         webView.evaluateJavaScript("window.promptEditor?.focus()")
+    }
+
+    // MARK: - NSWindowDelegate
+
+    public func windowDidBecomeKey(_ notification: Notification) {
+        // Ensure WKWebView becomes first responder when window is activated
+        // This fixes input issues in regular HTML input elements inside WKWebView
+        window.makeFirstResponder(webView)
     }
 
     public func getContent(completion: @escaping (String) -> Void) {
