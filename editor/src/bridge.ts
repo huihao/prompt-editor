@@ -10,6 +10,7 @@ import {
 } from './format-converter';
 import { workspaceManager, Workspace } from './workspace-manager';
 import { terminalContext, TerminalContextData, ShellIntegrationStatus } from './terminal-context';
+import { historyStore, HistoryItem } from './history-store';
 
 declare global {
   interface Window {
@@ -21,14 +22,6 @@ declare global {
       };
     };
   }
-}
-
-interface HistoryItem {
-  id: string;
-  content: string;
-  name: string;
-  timestamp: number;
-  isFavorite: boolean;
 }
 
 // Target types for sending (can be agent ID like 'claude-12345')
@@ -143,21 +136,6 @@ interface NativeBridge {
 }
 
 let editorView: EditorView | null = null;
-const HISTORY_KEY = 'promptEditor:history';
-const MAX_HISTORY_ITEMS = 100;
-
-function getHistory(): HistoryItem[] {
-  try {
-    const data = localStorage.getItem(HISTORY_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveHistory(history: HistoryItem[]) {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY_ITEMS)));
-}
 
 function postToNative(action: string, data?: Record<string, unknown>) {
   const message = { action, ...data };
@@ -168,25 +146,6 @@ function postToNative(action: string, data?: Record<string, unknown>) {
   }
   // Fallback: log to console
   console.log('[bridge]', message);
-}
-
-function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
-}
-
-function generateName(content: string): string {
-  // Generate name from first line
-  const firstLine = content.split('\n')[0].trim();
-  if (firstLine.length > 0) {
-    return firstLine.slice(0, 50) + (firstLine.length > 50 ? '...' : '');
-  }
-  return '';
-}
-
-function generateDefaultName(): string {
-  // Generate a default name based on timestamp when user doesn't provide one
-  const now = new Date();
-  return 'Saved ' + now.toLocaleString();
 }
 
 export const bridge: NativeBridge = {
@@ -339,44 +298,25 @@ export const bridge: NativeBridge = {
   },
 
   getHistory(): HistoryItem[] {
-    return getHistory();
+    return historyStore.getHistory();
   },
 
   addToHistory(content: string, name?: string) {
-    const history = getHistory();
-    // Avoid duplicates at the top (check content only)
-    if (history.length > 0 && history[0].content === content) {
-      return;
-    }
-    const newItem: HistoryItem = {
-      id: generateId(),
-      content,
-      name: name || generateName(content),
-      timestamp: Date.now(),
-      isFavorite: false,
-    };
-    saveHistory([newItem, ...history]);
+    void historyStore.add(content, name).catch(error => console.error('Failed to add history:', error));
   },
 
   saveToHistory(content: string, name?: string) {
     // Save to history without sending (used by Save button)
     if (!content.trim()) return;
-    const history = getHistory();
-    const newItem: HistoryItem = {
-      id: generateId(),
-      content,
-      name: name || generateName(content),
-      timestamp: Date.now(),
-      isFavorite: false,
-    };
-    saveHistory([newItem, ...history]);
-    // Clear the editor
-    bridge.setContent('');
-    localStorage.removeItem('promptEditor:draft');
+    void historyStore.add(content, name).then(() => {
+      // Clear the editor
+      bridge.setContent('');
+      localStorage.removeItem('promptEditor:draft');
+    }).catch(error => console.error('Failed to save history:', error));
   },
 
   loadFromHistory(id: string) {
-    const history = getHistory();
+    const history = historyStore.getHistory();
     const item = history.find(h => h.id === id);
     if (item && editorView) {
       bridge.setContent(item.content);
@@ -386,38 +326,19 @@ export const bridge: NativeBridge = {
   },
 
   deleteHistoryItem(id: string) {
-    const history = getHistory().filter(h => h.id !== id);
-    saveHistory(history);
+    void historyStore.delete(id).catch(error => console.error('Failed to delete history:', error));
   },
 
   toggleFavorite(id: string) {
-    const history = getHistory();
-    const item = history.find(h => h.id === id);
-    if (item) {
-      item.isFavorite = !item.isFavorite;
-      saveHistory(history);
-    }
+    void historyStore.toggleFavorite(id).catch(error => console.error('Failed to update favorite:', error));
   },
 
   updateHistoryItemName(id: string, name: string) {
-    const history = getHistory();
-    const item = history.find(h => h.id === id);
-    if (item && name.trim()) {
-      item.name = name.trim();
-      saveHistory(history);
-    }
+    void historyStore.updateName(id, name).catch(error => console.error('Failed to rename history:', error));
   },
 
   searchHistory(query: string): HistoryItem[] {
-    const history = getHistory();
-    if (!query.trim()) {
-      return history;
-    }
-    const lowerQuery = query.toLowerCase();
-    return history.filter(item => 
-      item.name.toLowerCase().includes(lowerQuery) ||
-      item.content.toLowerCase().includes(lowerQuery)
-    );
+    return historyStore.search(query);
   },
 
   hide() {
@@ -655,7 +576,7 @@ export const bridge: NativeBridge = {
     const historyList = document.getElementById('history-list');
     if (!historyList) return;
 
-    const history = items || getHistory();
+    const history = items || historyStore.getHistory();
     if (history.length === 0) {
       historyList.innerHTML = '<div class="history-empty">No history yet</div>';
       return;

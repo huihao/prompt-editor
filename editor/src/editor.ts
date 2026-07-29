@@ -35,8 +35,13 @@ import type { Snippet } from './snippet-manager';
 import { aiAutocomplete } from './ai-autocomplete';
 import { enhancePrompt } from './ai-enhance';
 import { showAISettingsModal } from './ai-config';
+import { historyStore } from './history-store';
 
 const STORAGE_KEY = 'promptEditor:draft';
+
+void historyStore.init().then(() => {
+  bridge.renderHistory();
+}).catch(error => console.error('Failed to initialize history store:', error));
 
 // Diagnostic function for debugging
 (window as any).diagnosticSnippetManager = () => {
