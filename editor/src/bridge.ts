@@ -133,6 +133,8 @@ interface NativeBridge {
   getShellIntegrationStatus: () => Promise<ShellIntegrationStatus | null>;
   formatTerminalContext: () => string;
   onTerminalContextUpdate: ((context: TerminalContextData) => void) | null;
+  // Prompt memory methods
+  showPromptMemoryScanner: () => void;
 }
 
 let editorView: EditorView | null = null;
@@ -555,6 +557,10 @@ export const bridge: NativeBridge = {
   hideTemplates() {
     const { hideTemplatePanel } = require('./template');
     hideTemplatePanel();
+  },
+
+  showPromptMemoryScanner() {
+    window.dispatchEvent(new CustomEvent('prompt-memory:open'));
   },
 
   showHistory() {
