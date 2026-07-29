@@ -247,10 +247,7 @@ export const bridge: NativeBridge = {
       }
     }
     
-    // DEBUG: Show what we're about to send
-    const debugInfo = `Target: ${target}\nEffective: ${effectiveTarget}\nAgent Type: ${agentType}\nMatched: ${agentInfo ? 'YES' : 'NO'}\nTerminal: ${agentInfo?.terminalApp || 'none'}`;
-    console.log('[bridge] Sending:', debugInfo);
-    // alert(debugInfo); // Uncomment to show debug alert
+    // Keep send quiet; tests and production WKWebView should not expose prompt routing details.
     
     // 转换文件引用格式 (use agent type for format conversion)
     const convertedContent = await bridge.convertForTarget(content, agentType as AgentFormat);

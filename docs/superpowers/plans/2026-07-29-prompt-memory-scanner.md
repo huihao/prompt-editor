@@ -18,7 +18,7 @@
 - Baseline frontend build passes with `npm run build`.
 - Baseline frontend tests have one known failure in `editor/src/__tests__/bridge.test.ts` caused by a production debug `console.log('[bridge] Sending:', ...)`.
 - Baseline Swift tests do not compile because `macos/Tests/PromptEditorTests.swift` still expects `BridgeAction.send(content:target:)`, while `macos/PromptEditor/Helpers.swift` already defines `send(content:target:agentId:pid:terminalApp:)`.
-- Use `env npm_config_cache=/private/tmp/prompt-editor-prompt-memory-npm-cache npm ...` in this worktree to avoid the local npm cache permission issue.
+- Run npm commands from `editor/`, using `env npm_config_cache=/private/tmp/prompt-editor-prompt-memory-npm-cache npm ...` to avoid the local npm cache permission issue.
 - Run `cargo build --release` in `core/` if `macos/Libraries/libprompt_editor_core.a` is missing in a fresh worktree.
 
 ## File Structure

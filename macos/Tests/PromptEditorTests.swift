@@ -76,19 +76,19 @@ final class HelpersTests: XCTestCase {
     func testParseBridgeMessage_send() {
         let body: [String: Any] = ["action": "send", "content": "hello world", "target": "default"]
         let action = Helpers.parseBridgeMessage(body)
-        XCTAssertEqual(action, .send(content: "hello world", target: "default"))
+        XCTAssertEqual(action, .send(content: "hello world", target: "default", agentId: nil, pid: nil, terminalApp: nil))
     }
     
     func testParseBridgeMessage_sendWithTarget() {
         let body: [String: Any] = ["action": "send", "content": "hello", "target": "kimi"]
         let action = Helpers.parseBridgeMessage(body)
-        XCTAssertEqual(action, .send(content: "hello", target: "kimi"))
+        XCTAssertEqual(action, .send(content: "hello", target: "kimi", agentId: nil, pid: nil, terminalApp: nil))
     }
 
     func testParseBridgeMessage_sendEmpty() {
         let body: [String: Any] = ["action": "send", "content": "", "target": "default"]
         let action = Helpers.parseBridgeMessage(body)
-        XCTAssertEqual(action, .send(content: "", target: "default"))
+        XCTAssertEqual(action, .send(content: "", target: "default", agentId: nil, pid: nil, terminalApp: nil))
     }
 
     func testParseBridgeMessage_sendMissingContent() {
@@ -140,7 +140,7 @@ final class HelpersTests: XCTestCase {
     func testParseBridgeMessage_sendWithExtraFields() {
         let body: [String: Any] = ["action": "send", "content": "test", "target": "codex", "extra": true]
         let action = Helpers.parseBridgeMessage(body)
-        XCTAssertEqual(action, .send(content: "test", target: "codex"))
+        XCTAssertEqual(action, .send(content: "test", target: "codex", agentId: nil, pid: nil, terminalApp: nil))
     }
 
     // MARK: isPipeMode
@@ -422,16 +422,16 @@ final class BridgeActionTests: XCTestCase {
 
     func testEquatable_send() {
         XCTAssertEqual(
-            Helpers.BridgeAction.send(content: "a", target: "default"),
-            Helpers.BridgeAction.send(content: "a", target: "default")
+            Helpers.BridgeAction.send(content: "a", target: "default", agentId: nil, pid: nil, terminalApp: nil),
+            Helpers.BridgeAction.send(content: "a", target: "default", agentId: nil, pid: nil, terminalApp: nil)
         )
         XCTAssertNotEqual(
-            Helpers.BridgeAction.send(content: "a", target: "default"),
-            Helpers.BridgeAction.send(content: "b", target: "default")
+            Helpers.BridgeAction.send(content: "a", target: "default", agentId: nil, pid: nil, terminalApp: nil),
+            Helpers.BridgeAction.send(content: "b", target: "default", agentId: nil, pid: nil, terminalApp: nil)
         )
         XCTAssertNotEqual(
-            Helpers.BridgeAction.send(content: "a", target: "default"),
-            Helpers.BridgeAction.send(content: "a", target: "kimi")
+            Helpers.BridgeAction.send(content: "a", target: "default", agentId: nil, pid: nil, terminalApp: nil),
+            Helpers.BridgeAction.send(content: "a", target: "kimi", agentId: nil, pid: nil, terminalApp: nil)
         )
     }
 
@@ -442,7 +442,7 @@ final class BridgeActionTests: XCTestCase {
     func testEquatable_differentTypes() {
         XCTAssertNotEqual(Helpers.BridgeAction.hide, Helpers.BridgeAction.showHistory)
         XCTAssertNotEqual(
-            Helpers.BridgeAction.send(content: "hide", target: "default"),
+            Helpers.BridgeAction.send(content: "hide", target: "default", agentId: nil, pid: nil, terminalApp: nil),
             Helpers.BridgeAction.hide
         )
     }
@@ -476,16 +476,19 @@ final class IntegrationTests: XCTestCase {
             XCTFail("Failed to parse bridge message")
             return
         }
-        XCTAssertEqual(action, .send(content: "# Hello\n\nThis is a **prompt**.", target: "claude"))
+        XCTAssertEqual(action, .send(content: "# Hello\n\nThis is a **prompt**.", target: "claude", agentId: nil, pid: nil, terminalApp: nil))
 
         // Simulate clipboard copy
-        if case .send(let content, let target) = action {
+        if case .send(let content, let target, let agentId, let pid, let terminalApp) = action {
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
             pasteboard.setString(content, forType: .string)
 
             XCTAssertEqual(pasteboard.string(forType: .string), "# Hello\n\nThis is a **prompt**.")
             XCTAssertEqual(target, "claude")
+            XCTAssertNil(agentId)
+            XCTAssertNil(pid)
+            XCTAssertNil(terminalApp)
         }
     }
 
