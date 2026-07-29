@@ -56,7 +56,13 @@ public final class PromptMemoryScanner {
         failed: @escaping (String) -> Void
     ) {
         cancel(scanId: scanId)
+        let parsers = parsers
         runningTasks[scanId] = Task(priority: .utility) {
+            defer {
+                DispatchQueue.main.async { [weak self] in
+                    self?.runningTasks[scanId] = nil
+                }
+            }
             var allItems: [PromptMemoryItem] = []
             for directory in directories {
                 if Task.isCancelled { return }
