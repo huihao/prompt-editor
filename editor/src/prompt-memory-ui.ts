@@ -44,12 +44,14 @@ async function openModal(controller: PromptMemoryController): Promise<void> {
         <div data-role="directories" class="prompt-memory-directories">
           <div class="prompt-memory-empty">Scanning directories...</div>
         </div>
+        <div data-role="progress" class="prompt-memory-progress"></div>
         <div data-role="results" class="prompt-memory-results"></div>
       </div>
       <div class="prompt-memory-footer">
         <span data-role="status">0 selected</span>
         <div class="prompt-memory-footer-actions">
           <button data-action="start-scan">Confirm Scan</button>
+          <button data-action="cancel-scan" hidden>Cancel</button>
           <button data-action="save-selected" disabled>Save to Favorites</button>
         </div>
       </div>
@@ -63,12 +65,12 @@ async function openModal(controller: PromptMemoryController): Promise<void> {
 
 function bindEvents(controller: PromptMemoryController): void {
   const root = getRoot();
-  root.querySelector('[data-action="close"]')?.addEventListener('click', () => {
+  const close = () => {
+    if (controller.isScanning) controller.cancelScan();
     root.innerHTML = '';
-  });
-  root.querySelector('.prompt-memory-backdrop')?.addEventListener('click', () => {
-    root.innerHTML = '';
-  });
+  };
+  root.querySelector('[data-action="close"]')?.addEventListener('click', close);
+  root.querySelector('.prompt-memory-backdrop')?.addEventListener('click', close);
   root.querySelector('[data-action="add-directory"]')?.addEventListener('click', async () => {
     const select = root.querySelector<HTMLSelectElement>('[data-role="agent-select"]')!;
     await controller.chooseDirectory(select.value as PromptMemoryAgent);
@@ -76,6 +78,10 @@ function bindEvents(controller: PromptMemoryController): void {
   });
   root.querySelector('[data-action="start-scan"]')?.addEventListener('click', () => {
     controller.startScan(controller.directories);
+    renderResults(controller);
+  });
+  root.querySelector('[data-action="cancel-scan"]')?.addEventListener('click', () => {
+    controller.cancelScan();
     renderResults(controller);
   });
   root.querySelector('[data-action="save-selected"]')?.addEventListener('click', async () => {
@@ -117,8 +123,15 @@ function renderResults(controller: PromptMemoryController): void {
   if (!container) return;
 
   const items = controller.items ?? [];
+  renderProgress(controller);
+  updateScanControls(controller);
   if (items.length === 0) {
-    container.innerHTML = '<div class="prompt-memory-empty">No prompt entries yet</div>';
+    const message = controller.isScanning
+      ? 'Scanning prompt entries...'
+      : controller.error
+        ? `Scan failed: ${escapeHtml(controller.error)}`
+        : 'No prompt entries yet';
+    container.innerHTML = `<div class="prompt-memory-empty">${message}</div>`;
     updateFooter(controller);
     return;
   }
@@ -184,8 +197,45 @@ function updateFooter(controller: PromptMemoryController): void {
   const selected = (controller.items ?? []).filter(item => item.selected && !item.existsInHistory && !item.saved).length;
   const status = getRoot().querySelector<HTMLElement>('[data-role="status"]');
   const save = getRoot().querySelector<HTMLButtonElement>('[data-action="save-selected"]');
-  if (status) status.textContent = `${selected} selected`;
+  if (status) {
+    status.textContent = controller.isScanning
+      ? `Scanning · ${selected} selected`
+      : controller.error
+        ? `Scan failed · ${selected} selected`
+        : `${selected} selected`;
+  }
   if (save) save.disabled = selected === 0;
+}
+
+function updateScanControls(controller: PromptMemoryController): void {
+  const root = getRoot();
+  const start = root.querySelector<HTMLButtonElement>('[data-action="start-scan"]');
+  const cancel = root.querySelector<HTMLButtonElement>('[data-action="cancel-scan"]');
+  if (start) start.disabled = controller.isScanning;
+  if (cancel) cancel.hidden = !controller.isScanning;
+}
+
+function renderProgress(controller: PromptMemoryController): void {
+  const container = getRoot().querySelector<HTMLElement>('[data-role="progress"]');
+  if (!container) return;
+
+  const progress = controller.progress ?? [];
+  if (progress.length === 0 && !controller.error) {
+    container.innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = [
+    ...progress.map(item => `
+      <div class="prompt-memory-progress-row">
+        <span>${escapeHtml(item.directoryId)}</span>
+        <span>${escapeHtml(item.status)}</span>
+        <span>${item.extracted} extracted</span>
+        ${item.error ? `<span class="prompt-memory-error">${escapeHtml(item.error)}</span>` : ''}
+      </div>
+    `),
+    controller.error ? `<div class="prompt-memory-error">${escapeHtml(controller.error)}</div>` : '',
+  ].join('');
 }
 
 function agentOptions(): string {

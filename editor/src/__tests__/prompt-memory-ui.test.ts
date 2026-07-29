@@ -58,4 +58,25 @@ describe('prompt memory UI', () => {
 
     expect(document.querySelector('.prompt-memory-result-content')?.textContent).toBe('prompt from callback');
   });
+
+  it('shows cancel while scanning and cancels when closed', async () => {
+    const controller = {
+      detectDirectories: vi.fn(async () => []),
+      cancelScan: vi.fn(),
+      items: [],
+      progress: [{ scanId: 's', directoryId: 'codex:/tmp', status: 'scanning', filesRead: 0, extracted: 2, skipped: 0 }],
+      isScanning: true,
+    };
+    initPromptMemoryUI(controller as any);
+
+    window.dispatchEvent(new CustomEvent('prompt-memory:open'));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    window.dispatchEvent(new CustomEvent('prompt-memory:update'));
+
+    expect(document.querySelector<HTMLButtonElement>('[data-action="cancel-scan"]')?.hidden).toBe(false);
+    expect(document.querySelector('[data-role="progress"]')?.textContent).toContain('codex:/tmp');
+
+    document.querySelector<HTMLButtonElement>('[data-action="close"]')!.click();
+    expect(controller.cancelScan).toHaveBeenCalled();
+  });
 });

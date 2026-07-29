@@ -73,6 +73,7 @@ export class PromptMemoryController {
   progress: PromptMemoryProgress[] = [];
   scanId = '';
   isScanning = false;
+  error: string | null = null;
 
   constructor(private readonly store: Pick<HistoryStore, 'hasContent' | 'bulkAddFavorites'> = historyStore) {
     this.installCallbacks();
@@ -85,8 +86,8 @@ export class PromptMemoryController {
         delete (window as any)[name];
         const detected = directories.map(dir => ({ ...dir, selected: dir.exists }));
         const custom = loadCustomDirectories();
-        this.directories = [...detected, ...custom];
-        resolve(this.directories);
+      this.directories = [...detected, ...custom];
+      resolve(this.directories);
       };
 
       postToNative('detectPromptMemoryDirectories', { callback: name });
@@ -113,7 +114,10 @@ export class PromptMemoryController {
           exists: true,
           selected: true,
         };
-        this.directories = [...this.directories, directory];
+        this.directories = [
+          ...this.directories.filter(existing => existing.id !== directory.id),
+          directory,
+        ];
         saveCustomDirectories(this.directories);
         resolve(directory);
       };
@@ -130,6 +134,7 @@ export class PromptMemoryController {
     this.items = [];
     this.progress = [];
     this.isScanning = true;
+    this.error = null;
     this.emitUpdate();
     postToNative('startPromptMemoryScan', {
       scanId: this.scanId,
@@ -142,6 +147,11 @@ export class PromptMemoryController {
     if (!this.scanId) return;
     postToNative('cancelPromptMemoryScan', { scanId: this.scanId });
     this.isScanning = false;
+    this.progress = this.progress.map(progress => (
+      progress.status === 'scanning' || progress.status === 'waiting'
+        ? { ...progress, status: 'cancelled' }
+        : progress
+    ));
     this.emitUpdate();
   }
 
@@ -152,9 +162,10 @@ export class PromptMemoryController {
       timestamp: item.timestamp ? new Date(item.timestamp).getTime() : null,
     })));
     for (const item of selected) {
-      item.saved = true;
+      const saved = this.store.hasContent(item.content);
+      item.saved = saved;
       item.selected = false;
-      item.existsInHistory = true;
+      item.existsInHistory = saved;
     }
     return result;
   }
@@ -200,6 +211,7 @@ export class PromptMemoryController {
     (window as any).onPromptMemoryScanFailed = (failure: { scanId: string; error: string }) => {
       if (failure.scanId !== this.scanId) return;
       this.isScanning = false;
+      this.error = failure.error;
       this.emitUpdate();
     };
   }

@@ -22,6 +22,7 @@ public final class ClaudeCodeParser: PromptMemoryParser {
             guard let content = PromptMemoryNormalizer.normalize(
                 PromptMemoryJSON.textContent(from: message?["content"] ?? record["content"]) ?? ""
             ),
+                !PromptMemoryAutoContextFilter.isAutoInjectedContext(content),
                 !PromptMemoryFilters.isControlCommand(content, knownCommands: commands)
             else { return nil }
 

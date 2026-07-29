@@ -20,6 +20,7 @@ public final class PiParser: PromptMemoryParser {
             guard let content = PromptMemoryNormalizer.normalize(
                 PromptMemoryJSON.textContent(from: message?["content"]) ?? ""
             ),
+                !PromptMemoryAutoContextFilter.isAutoInjectedContext(content),
                 !PromptMemoryFilters.isControlCommand(content, knownCommands: commands)
             else { return nil }
 

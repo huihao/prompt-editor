@@ -20,6 +20,7 @@ public final class OpenCodeParser: PromptMemoryParser {
         PromptMemoryJSON.objects(in: file).compactMap { record in
             guard let raw = record["input"] as? String,
                   let content = PromptMemoryNormalizer.normalize(raw),
+                  !PromptMemoryAutoContextFilter.isAutoInjectedContext(content),
                   !PromptMemoryFilters.isControlCommand(content, knownCommands: commands)
             else { return nil }
 
@@ -55,6 +56,7 @@ public final class OpenCodeParser: PromptMemoryParser {
         while sqlite3_step(statement) == SQLITE_ROW {
             guard let cString = sqlite3_column_text(statement, 0),
                   let content = PromptMemoryNormalizer.normalize(String(cString: cString)),
+                  !PromptMemoryAutoContextFilter.isAutoInjectedContext(content),
                   !PromptMemoryFilters.isControlCommand(content, knownCommands: commands)
             else { continue }
 

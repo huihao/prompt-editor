@@ -73,9 +73,13 @@ describe('PromptMemoryController', () => {
   });
 
   it('saves selected items to favorites', async () => {
+    let saved = false;
     const historyStore = {
-      hasContent: vi.fn(() => false),
-      bulkAddFavorites: vi.fn(async () => ({ inserted: 1, skipped: 0 })),
+      hasContent: vi.fn(() => saved),
+      bulkAddFavorites: vi.fn(async () => {
+        saved = true;
+        return { inserted: 1, skipped: 0 };
+      }),
     };
     const controller = new PromptMemoryController(historyStore as any);
     controller.startScan([{ id: 'd', agent: 'codex', path: '/tmp/codex', isDetected: true, exists: true, selected: true }]);
@@ -90,5 +94,30 @@ describe('PromptMemoryController', () => {
     expect(result).toEqual({ inserted: 1, skipped: 0 });
     expect(historyStore.bulkAddFavorites).toHaveBeenCalledWith([{ content: 'save me', timestamp: null }]);
     expect(controller.items[0].saved).toBe(true);
+  });
+
+  it('deduplicates custom directories by agent and path', async () => {
+    const controller = new PromptMemoryController();
+    const first = controller.chooseDirectory('codex');
+    const firstCallback = Object.keys(window).find(key => key.startsWith('promptMemoryDirectory_'))!;
+    (window as any)[firstCallback]('/tmp/codex');
+    await first;
+
+    const second = controller.chooseDirectory('codex');
+    const secondCallback = Object.keys(window).find(key => key.startsWith('promptMemoryDirectory_'))!;
+    (window as any)[secondCallback]('/tmp/codex');
+    await second;
+
+    expect(controller.directories.filter(dir => dir.id === 'codex:/tmp/codex')).toHaveLength(1);
+  });
+
+  it('marks failed scans with an error message', () => {
+    const controller = new PromptMemoryController();
+    controller.startScan([{ id: 'd', agent: 'codex', path: '/tmp/codex', isDetected: true, exists: true, selected: true }]);
+
+    (window as any).onPromptMemoryScanFailed({ scanId: controller.scanId, error: 'boom' });
+
+    expect(controller.isScanning).toBe(false);
+    expect(controller.error).toBe('boom');
   });
 });

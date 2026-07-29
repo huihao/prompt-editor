@@ -94,9 +94,9 @@ interface NativeBridge {
   addToHistory: (content: string, name?: string) => void;
   saveToHistory: (content: string, name?: string) => void;
   loadFromHistory: (id: string) => void;
-  deleteHistoryItem: (id: string) => void;
-  toggleFavorite: (id: string) => void;
-  updateHistoryItemName: (id: string, name: string) => void;
+  deleteHistoryItem: (id: string) => Promise<void>;
+  toggleFavorite: (id: string) => Promise<void>;
+  updateHistoryItemName: (id: string, name: string) => Promise<void>;
   searchHistory: (query: string) => HistoryItem[];
   renderHistory: (items?: HistoryItem[]) => void;
   getAvailableTargets: () => TargetConfig[];
@@ -327,16 +327,16 @@ export const bridge: NativeBridge = {
     }
   },
 
-  deleteHistoryItem(id: string) {
-    void historyStore.delete(id).catch(error => console.error('Failed to delete history:', error));
+  async deleteHistoryItem(id: string) {
+    await historyStore.delete(id).catch(error => console.error('Failed to delete history:', error));
   },
 
-  toggleFavorite(id: string) {
-    void historyStore.toggleFavorite(id).catch(error => console.error('Failed to update favorite:', error));
+  async toggleFavorite(id: string) {
+    await historyStore.toggleFavorite(id).catch(error => console.error('Failed to update favorite:', error));
   },
 
-  updateHistoryItemName(id: string, name: string) {
-    void historyStore.updateName(id, name).catch(error => console.error('Failed to rename history:', error));
+  async updateHistoryItemName(id: string, name: string) {
+    await historyStore.updateName(id, name).catch(error => console.error('Failed to rename history:', error));
   },
 
   searchHistory(query: string): HistoryItem[] {
@@ -622,12 +622,10 @@ export const bridge: NativeBridge = {
         const target = e.target as HTMLElement;
         if (target.classList.contains('history-item-delete')) {
           e.stopPropagation();
-          bridge.deleteHistoryItem(id);
-          bridge.renderHistory();
+          void bridge.deleteHistoryItem(id).then(() => bridge.renderHistory());
         } else if (target.classList.contains('history-item-favorite')) {
           e.stopPropagation();
-          bridge.toggleFavorite(id);
-          bridge.renderHistory();
+          void bridge.toggleFavorite(id).then(() => bridge.renderHistory());
         } else if (!target.classList.contains('history-item-name')) {
           // Load item if not clicking on editable name
           bridge.loadFromHistory(id);
@@ -646,8 +644,7 @@ export const bridge: NativeBridge = {
         });
         nameEl.addEventListener('blur', () => {
           const newName = nameEl.textContent || '';
-          bridge.updateHistoryItemName(id, newName);
-          bridge.renderHistory();
+          void bridge.updateHistoryItemName(id, newName).then(() => bridge.renderHistory());
         });
         nameEl.addEventListener('keydown', (e) => {
           if (e.key === 'Enter') {

@@ -19,6 +19,51 @@ function createLocalStorageMock() {
 
 let localStorageMock: ReturnType<typeof createLocalStorageMock>;
 
+function createIndexedDBMock(initialItems: any[] = []) {
+  let records = [...initialItems];
+  const db = {
+    objectStoreNames: { contains: vi.fn(() => true) },
+    createObjectStore: vi.fn(),
+    transaction: vi.fn(() => {
+      const transaction: any = {
+        objectStore: vi.fn(() => ({
+          getAll: vi.fn(() => {
+            const request: any = {};
+            setTimeout(() => {
+              request.result = [...records];
+              request.onsuccess?.();
+            }, 10);
+            return request;
+          }),
+          clear: vi.fn(() => {
+            records = [];
+          }),
+          put: vi.fn((item: any) => {
+            records.push(item);
+          }),
+        })),
+        oncomplete: null,
+        onerror: null,
+        onabort: null,
+        error: null,
+      };
+      setTimeout(() => transaction.oncomplete?.(), 0);
+      return transaction;
+    }),
+  };
+  return {
+    open: vi.fn(() => {
+      const request: any = {};
+      setTimeout(() => {
+        request.result = db;
+        request.onsuccess?.();
+      }, 0);
+      return request;
+    }),
+    records: () => records,
+  };
+}
+
 beforeEach(() => {
   localStorageMock = createLocalStorageMock();
   vi.stubGlobal('localStorage', localStorageMock);
@@ -83,5 +128,25 @@ describe('HistoryStore', () => {
     expect(result).toEqual({ inserted: 1, skipped: 1 });
     expect(store.hasContent('same prompt')).toBe(true);
     expect(store.getHistory().some(item => item.content === 'new prompt' && item.isFavorite)).toBe(true);
+  });
+
+  it('waits for IndexedDB initialization before mutating history', async () => {
+    const indexedDBMock = createIndexedDBMock([{
+      id: 'old',
+      content: 'old indexeddb prompt',
+      name: 'Old',
+      timestamp: 10,
+      isFavorite: false,
+    }]);
+    vi.stubGlobal('indexedDB', indexedDBMock);
+
+    const store = new HistoryStore('test-history-init-race');
+    const initPromise = store.init();
+    const addPromise = store.add('new prompt', 'New', false, 20);
+
+    await Promise.all([initPromise, addPromise]);
+
+    expect(store.getHistory().map(item => item.content)).toEqual(['new prompt', 'old indexeddb prompt']);
+    expect(indexedDBMock.records().map(item => item.content)).toEqual(['new prompt', 'old indexeddb prompt']);
   });
 });

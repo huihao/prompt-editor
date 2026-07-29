@@ -710,6 +710,7 @@ final class PromptMemoryJSONLParserTests: XCTestCase {
         let root = try PromptMemoryFixtures.tempDirectory(self)
         try PromptMemoryFixtures.write("""
         {"type":"user","cwd":"/tmp/project","timestamp":"2026-07-29T02:00:00Z","message":{"role":"user","content":[{"type":"text","text":"fix the tests"}]}}
+        {"type":"user","message":{"role":"user","content":"<environment_context>auto</environment_context>"}}
         {"type":"assistant","message":{"role":"assistant","content":"not a prompt"}}
         """, to: root.appendingPathComponent("projects/a/session.jsonl"))
         let directory = PromptMemoryDirectory(id: "d", agent: .claudeCode, path: root.path, isDetected: true, exists: true, modifiedAt: nil)
@@ -723,6 +724,7 @@ final class PromptMemoryJSONLParserTests: XCTestCase {
         let root = try PromptMemoryFixtures.tempDirectory(self)
         try PromptMemoryFixtures.write("""
         {"cwd":"/tmp/pi","message":{"role":"user","content":"ship it"},"timestamp":"2026-07-29T03:00:00Z"}
+        {"message":{"role":"user","content":"<skills_instructions>auto</skills_instructions>"}}
         {"message":{"role":"assistant","content":"done"}}
         """, to: root.appendingPathComponent("sessions/one.jsonl"))
         let directory = PromptMemoryDirectory(id: "d", agent: .pi, path: root.path, isDetected: true, exists: true, modifiedAt: nil)
@@ -734,6 +736,7 @@ final class PromptMemoryJSONLParserTests: XCTestCase {
         let root = try PromptMemoryFixtures.tempDirectory(self)
         try PromptMemoryFixtures.write("""
         {"content":"review this diff","createdAt":"2026-07-29T04:00:00Z"}
+        {"content":"<environment_context>auto</environment_context>","createdAt":"2026-07-29T04:00:30Z"}
         {"content":"/clear","createdAt":"2026-07-29T04:01:00Z"}
         """, to: root.appendingPathComponent("user-history/history.jsonl"))
         let directory = PromptMemoryDirectory(id: "d", agent: .kimi, path: root.path, isDetected: true, exists: true, modifiedAt: nil)
@@ -749,6 +752,7 @@ final class PromptMemoryScannerTests: XCTestCase {
         let root = try PromptMemoryFixtures.tempDirectory(self)
         try PromptMemoryFixtures.write("""
         {"input":"explain this error","time_created":1780000000}
+        {"input":"<environment_context>auto</environment_context>","time_created":1780000000}
         {"input":"/help","time_created":1780000001}
         """, to: root.appendingPathComponent("prompt-history.jsonl"))
         let directory = PromptMemoryDirectory(id: "d", agent: .openCode, path: root.path, isDetected: true, exists: true, modifiedAt: nil)

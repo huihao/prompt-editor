@@ -18,6 +18,7 @@ public final class KimiParser: PromptMemoryParser {
         return PromptMemoryJSON.objects(in: file).compactMap { record in
             guard let raw = record["content"] as? String,
                   let content = PromptMemoryNormalizer.normalize(raw),
+                  !PromptMemoryAutoContextFilter.isAutoInjectedContext(content),
                   !PromptMemoryFilters.isControlCommand(content, knownCommands: commands)
             else { return nil }
 

@@ -52,6 +52,7 @@ function isHistoryItem(value: unknown): value is HistoryItem {
 export class HistoryStore {
   private db: IDBDatabase | null = null;
   private initialized = false;
+  private initPromise: Promise<void> | null = null;
   private items: HistoryItem[] = [];
   private byId = new Map<string, HistoryItem>();
   private byContent = new Set<string>();
@@ -63,7 +64,17 @@ export class HistoryStore {
 
   async init(): Promise<void> {
     if (this.initialized) return;
+    if (this.initPromise) return this.initPromise;
 
+    this.initPromise = this.initialize();
+    try {
+      await this.initPromise;
+    } finally {
+      this.initPromise = null;
+    }
+  }
+
+  private async initialize(): Promise<void> {
     if (!canUseIndexedDB()) {
       this.initialized = true;
       return;
@@ -105,6 +116,7 @@ export class HistoryStore {
   }
 
   async add(content: string, name?: string, isFavorite = false, timestamp = Date.now()): Promise<HistoryItem | null> {
+    await this.init();
     if (!content.trim()) return null;
     if (this.items[0]?.content === content) return this.items[0];
 
@@ -121,6 +133,7 @@ export class HistoryStore {
   }
 
   async bulkAddFavorites(inputs: FavoriteImportInput[]): Promise<{ inserted: number; skipped: number }> {
+    await this.init();
     const additions: HistoryItem[] = [];
     const seen = new Set(this.byContent);
     let skipped = 0;
@@ -150,10 +163,12 @@ export class HistoryStore {
   }
 
   async delete(id: string): Promise<void> {
+    await this.init();
     await this.replaceItems(this.items.filter(item => item.id !== id));
   }
 
   async toggleFavorite(id: string): Promise<void> {
+    await this.init();
     const next = this.items.map(item =>
       item.id === id ? { ...item, isFavorite: !item.isFavorite } : item
     );
@@ -161,6 +176,7 @@ export class HistoryStore {
   }
 
   async updateName(id: string, name: string): Promise<void> {
+    await this.init();
     const trimmed = name.trim();
     if (!trimmed) return;
     const next = this.items.map(item =>
