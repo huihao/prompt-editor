@@ -611,3 +611,45 @@ final class TerminalConfigTests: XCTestCase {
         XCTAssertEqual(Helpers.TerminalConfig.postPasteEnterDelay, 0.1)
     }
 }
+
+// MARK: - Prompt Memory Core Tests
+
+final class PromptMemoryCoreTests: XCTestCase {
+    func testNormalizePromptMemoryContent() {
+        XCTAssertEqual(PromptMemoryNormalizer.normalize("  a\r\n  b\r c  "), "a\n  b\n c")
+        XCTAssertNil(PromptMemoryNormalizer.normalize(" \n\t "))
+    }
+
+    func testKnownControlCommandFiltering() {
+        XCTAssertTrue(PromptMemoryFilters.isControlCommand("/help", knownCommands: ["/help"]))
+        XCTAssertTrue(PromptMemoryFilters.isControlCommand("/help search", knownCommands: ["/help"]))
+        XCTAssertFalse(PromptMemoryFilters.isControlCommand("/Users/me/project", knownCommands: ["/help"]))
+        XCTAssertFalse(PromptMemoryFilters.isControlCommand("!ls -la", knownCommands: ["/help"]))
+    }
+
+    func testDeduplicatePromptMemoryItemsKeepsLatestAndMergesSources() {
+        let old = PromptMemoryItem(
+            id: "old",
+            content: "build this",
+            timestamp: Date(timeIntervalSince1970: 10),
+            agents: [.codex],
+            sourceDirectories: ["/tmp/codex"],
+            projectDirectory: "/tmp/a"
+        )
+        let latest = PromptMemoryItem(
+            id: "new",
+            content: " build this ",
+            timestamp: Date(timeIntervalSince1970: 20),
+            agents: [.claudeCode],
+            sourceDirectories: ["/tmp/claude"],
+            projectDirectory: "/tmp/b"
+        )
+        let result = PromptMemoryDeduper.deduplicate([old, latest])
+        XCTAssertEqual(result.count, 1)
+        XCTAssertEqual(result[0].content, "build this")
+        XCTAssertEqual(result[0].timestamp, Date(timeIntervalSince1970: 20))
+        XCTAssertEqual(Set(result[0].agents), Set([.codex, .claudeCode]))
+        XCTAssertEqual(Set(result[0].sourceDirectories), Set(["/tmp/codex", "/tmp/claude"]))
+        XCTAssertEqual(result[0].projectDirectory, "/tmp/b")
+    }
+}
