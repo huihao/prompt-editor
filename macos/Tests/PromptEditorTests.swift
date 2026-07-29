@@ -705,3 +705,45 @@ final class PromptMemoryJSONLParserTests: XCTestCase {
         XCTAssertEqual(items.map(\.content), ["review this diff"])
     }
 }
+
+// MARK: - Prompt Memory Scanner Tests
+
+final class PromptMemoryScannerTests: XCTestCase {
+    func testOpenCodePromptHistoryParserReadsInput() async throws {
+        let root = try PromptMemoryFixtures.tempDirectory(self)
+        try PromptMemoryFixtures.write("""
+        {"input":"explain this error","time_created":1780000000}
+        {"input":"/help","time_created":1780000001}
+        """, to: root.appendingPathComponent("prompt-history.jsonl"))
+        let directory = PromptMemoryDirectory(id: "d", agent: .openCode, path: root.path, isDetected: true, exists: true, modifiedAt: nil)
+        let items = await OpenCodeParser().parse(directory: directory)
+        XCTAssertEqual(items.map(\.content), ["explain this error"])
+    }
+
+    func testScannerDeduplicatesAcrossParsers() async throws {
+        let root = try PromptMemoryFixtures.tempDirectory(self)
+        let codex = root.appendingPathComponent("codex")
+        let kimi = root.appendingPathComponent("kimi")
+        try PromptMemoryFixtures.write("{\"text\":\"same prompt\",\"ts\":\"2026-07-29T01:00:00Z\"}\n", to: codex.appendingPathComponent("history.jsonl"))
+        try PromptMemoryFixtures.write("{\"content\":\"same prompt\",\"createdAt\":\"2026-07-29T02:00:00Z\"}\n", to: kimi.appendingPathComponent("user-history/history.jsonl"))
+        let scanner = PromptMemoryScanner(homeDirectory: root)
+        let items = await scanner.scanForTests(directories: [
+            PromptMemoryDirectory(id: "c", agent: .codex, path: codex.path, isDetected: true, exists: true, modifiedAt: nil),
+            PromptMemoryDirectory(id: "k", agent: .kimi, path: kimi.path, isDetected: true, exists: true, modifiedAt: nil),
+        ])
+        XCTAssertEqual(items.count, 1)
+        XCTAssertEqual(Set(items[0].agents), Set([.codex, .kimi]))
+        XCTAssertEqual(items[0].timestamp, ISO8601DateFormatter().date(from: "2026-07-29T02:00:00Z"))
+    }
+
+    func testDetectedDirectoriesUseKnownAgentPaths() {
+        let root = URL(fileURLWithPath: "/Users/tester")
+        let scanner = PromptMemoryScanner(homeDirectory: root)
+        let directories = scanner.detectDefaultDirectories()
+        XCTAssertTrue(directories.contains { $0.agent == .claudeCode && $0.path == "/Users/tester/.claude" })
+        XCTAssertTrue(directories.contains { $0.agent == .codex && $0.path == "/Users/tester/.codex" })
+        XCTAssertTrue(directories.contains { $0.agent == .openCode && $0.path == "/Users/tester/.local/state/opencode" })
+        XCTAssertTrue(directories.contains { $0.agent == .pi && $0.path == "/Users/tester/.pi/agent" })
+        XCTAssertTrue(directories.contains { $0.agent == .kimi && $0.path == "/Users/tester/.kimi" })
+    }
+}
