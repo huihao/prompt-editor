@@ -130,6 +130,7 @@ export class PromptMemoryController {
     this.items = [];
     this.progress = [];
     this.isScanning = true;
+    this.emitUpdate();
     postToNative('startPromptMemoryScan', {
       scanId: this.scanId,
       directories: directories.filter(dir => dir.selected),
@@ -141,6 +142,7 @@ export class PromptMemoryController {
     if (!this.scanId) return;
     postToNative('cancelPromptMemoryScan', { scanId: this.scanId });
     this.isScanning = false;
+    this.emitUpdate();
   }
 
   async saveSelectedToFavorites(): Promise<{ inserted: number; skipped: number }> {
@@ -166,6 +168,7 @@ export class PromptMemoryController {
       } else {
         this.progress.push(progress);
       }
+      this.emitUpdate();
     };
 
     (window as any).onPromptMemoryScanBatch = (batch: NativeBatch) => {
@@ -184,18 +187,25 @@ export class PromptMemoryController {
         }
       }
       this.sortItems();
+      this.emitUpdate();
     };
 
     (window as any).onPromptMemoryScanCompleted = (batch: NativeBatch) => {
       if (batch.scanId !== this.scanId) return;
       (window as any).onPromptMemoryScanBatch(batch);
       this.isScanning = false;
+      this.emitUpdate();
     };
 
     (window as any).onPromptMemoryScanFailed = (failure: { scanId: string; error: string }) => {
       if (failure.scanId !== this.scanId) return;
       this.isScanning = false;
+      this.emitUpdate();
     };
+  }
+
+  private emitUpdate(): void {
+    window.dispatchEvent(new CustomEvent('prompt-memory:update'));
   }
 
   private sortItems(): void {

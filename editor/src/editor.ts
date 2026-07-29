@@ -36,6 +36,7 @@ import { aiAutocomplete } from './ai-autocomplete';
 import { enhancePrompt } from './ai-enhance';
 import { showAISettingsModal } from './ai-config';
 import { historyStore } from './history-store';
+import { initPromptMemoryUI } from './prompt-memory-ui';
 
 const STORAGE_KEY = 'promptEditor:draft';
 
@@ -720,6 +721,7 @@ document.getElementById('btn-exit-template-mode')?.addEventListener('click', () 
 // Initialize template UI
 initTemplateUI(view);
 initTemplateManagerUI();
+initPromptMemoryUI();
 
 // History search and filters
 const searchInput = document.getElementById('search-input') as HTMLInputElement;
