@@ -148,10 +148,9 @@ public class MainWindow: NSObject, WKScriptMessageHandler, NSWindowDelegate {
     ) {
         guard let action = Helpers.parseBridgeMessage(message.body) else { return }
 
-        let delegate = NSApp.delegate as! AppDelegate
-
         switch action {
         case .send(let content, let target, let agentId, let pid, let terminalApp):
+            guard let delegate = NSApp.delegate as? AppDelegate else { return }
             NSLog("[MainWindow] Received send action - target: \(target), agentId: \(agentId ?? "nil"), pid: \(pid ?? 0), terminalApp: \(terminalApp ?? "nil")")
             if isPipeMode {
                 delegate.pipeOutput(content)
@@ -175,6 +174,7 @@ public class MainWindow: NSObject, WKScriptMessageHandler, NSWindowDelegate {
             pasteboard.clearContents()
             pasteboard.setString(content, forType: .string)
         case .hide:
+            guard let delegate = NSApp.delegate as? AppDelegate else { return }
             delegate.hideWindow()
         case .showHistory:
             // TODO: show history panel
