@@ -653,3 +653,55 @@ final class PromptMemoryCoreTests: XCTestCase {
         XCTAssertEqual(result[0].projectDirectory, "/tmp/b")
     }
 }
+
+// MARK: - Prompt Memory JSONL Parser Tests
+
+final class PromptMemoryJSONLParserTests: XCTestCase {
+    func testCodexHistoryParserReadsUserTextAndFiltersInjectedContext() async throws {
+        let root = try PromptMemoryFixtures.tempDirectory(self)
+        try PromptMemoryFixtures.write("""
+        {"session_id":"s1","ts":"2026-07-29T01:02:03Z","text":"build a parser"}
+        {"session_id":"s2","ts":"2026-07-29T01:02:04Z","text":"<environment_context>auto</environment_context>"}
+        {"session_id":"s3","ts":"2026-07-29T01:02:05Z","text":"/help"}
+        """, to: root.appendingPathComponent("history.jsonl"))
+        let directory = PromptMemoryDirectory(id: "d", agent: .codex, path: root.path, isDetected: true, exists: true, modifiedAt: nil)
+        let items = await CodexParser().parse(directory: directory)
+        XCTAssertEqual(items.map(\.content), ["build a parser"])
+        XCTAssertEqual(items[0].timestamp, ISO8601DateFormatter().date(from: "2026-07-29T01:02:03Z"))
+    }
+
+    func testClaudeParserReadsUserMessageBlocksOnly() async throws {
+        let root = try PromptMemoryFixtures.tempDirectory(self)
+        try PromptMemoryFixtures.write("""
+        {"type":"user","cwd":"/tmp/project","timestamp":"2026-07-29T02:00:00Z","message":{"role":"user","content":[{"type":"text","text":"fix the tests"}]}}
+        {"type":"assistant","message":{"role":"assistant","content":"not a prompt"}}
+        """, to: root.appendingPathComponent("projects/a/session.jsonl"))
+        let directory = PromptMemoryDirectory(id: "d", agent: .claudeCode, path: root.path, isDetected: true, exists: true, modifiedAt: nil)
+        let items = await ClaudeCodeParser().parse(directory: directory)
+        XCTAssertEqual(items.count, 1)
+        XCTAssertEqual(items[0].content, "fix the tests")
+        XCTAssertEqual(items[0].projectDirectory, "/tmp/project")
+    }
+
+    func testPiParserReadsUserMessageText() async throws {
+        let root = try PromptMemoryFixtures.tempDirectory(self)
+        try PromptMemoryFixtures.write("""
+        {"cwd":"/tmp/pi","message":{"role":"user","content":"ship it"},"timestamp":"2026-07-29T03:00:00Z"}
+        {"message":{"role":"assistant","content":"done"}}
+        """, to: root.appendingPathComponent("sessions/one.jsonl"))
+        let directory = PromptMemoryDirectory(id: "d", agent: .pi, path: root.path, isDetected: true, exists: true, modifiedAt: nil)
+        let items = await PiParser().parse(directory: directory)
+        XCTAssertEqual(items.map(\.content), ["ship it"])
+    }
+
+    func testKimiParserReadsUserHistoryContent() async throws {
+        let root = try PromptMemoryFixtures.tempDirectory(self)
+        try PromptMemoryFixtures.write("""
+        {"content":"review this diff","createdAt":"2026-07-29T04:00:00Z"}
+        {"content":"/clear","createdAt":"2026-07-29T04:01:00Z"}
+        """, to: root.appendingPathComponent("user-history/history.jsonl"))
+        let directory = PromptMemoryDirectory(id: "d", agent: .kimi, path: root.path, isDetected: true, exists: true, modifiedAt: nil)
+        let items = await KimiParser().parse(directory: directory)
+        XCTAssertEqual(items.map(\.content), ["review this diff"])
+    }
+}
