@@ -109,6 +109,42 @@ final class HelpersTests: XCTestCase {
         XCTAssertEqual(action, .showHistory)
     }
 
+    func testParseBridgeMessage_detectPromptMemoryDirectories() {
+        let body: [String: Any] = ["action": "detectPromptMemoryDirectories", "callback": "cb"]
+        let action = Helpers.parseBridgeMessage(body)
+        XCTAssertEqual(action, .detectPromptMemoryDirectories(callback: "cb"))
+    }
+
+    func testParseBridgeMessage_choosePromptMemoryDirectory() {
+        let body: [String: Any] = ["action": "choosePromptMemoryDirectory", "callback": "cb"]
+        let action = Helpers.parseBridgeMessage(body)
+        XCTAssertEqual(action, .choosePromptMemoryDirectory(callback: "cb"))
+    }
+
+    func testParseBridgeMessage_startPromptMemoryScan() {
+        let body: [String: Any] = [
+            "action": "startPromptMemoryScan",
+            "scanId": "scan-1",
+            "directories": [
+                ["id": "d", "agent": "codex", "path": "/tmp/codex", "isDetected": true, "exists": true]
+            ],
+        ]
+        let action = Helpers.parseBridgeMessage(body)
+        if case .startPromptMemoryScan(let scanId, let directories) = action {
+            XCTAssertEqual(scanId, "scan-1")
+            XCTAssertEqual(directories.count, 1)
+            XCTAssertEqual(directories[0].agent, .codex)
+        } else {
+            XCTFail("Expected startPromptMemoryScan")
+        }
+    }
+
+    func testParseBridgeMessage_cancelPromptMemoryScan() {
+        let body: [String: Any] = ["action": "cancelPromptMemoryScan", "scanId": "scan-1"]
+        let action = Helpers.parseBridgeMessage(body)
+        XCTAssertEqual(action, .cancelPromptMemoryScan(scanId: "scan-1"))
+    }
+
     func testParseBridgeMessage_unknown() {
         let body: [String: Any] = ["action": "doSomething"]
         let action = Helpers.parseBridgeMessage(body)

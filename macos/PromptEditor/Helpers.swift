@@ -23,6 +23,10 @@ public enum Helpers {
         case showFolderPicker(callback: String)
         case readFile(path: String, callback: String)
         case getRunningAgents(callback: String)
+        case detectPromptMemoryDirectories(callback: String)
+        case choosePromptMemoryDirectory(callback: String)
+        case startPromptMemoryScan(scanId: String, directories: [PromptMemoryDirectory])
+        case cancelPromptMemoryScan(scanId: String)
         case showSnippetWheel
         case captureTerminal(maxLines: Int, callback: String)
         case installShellIntegration(callback: String)
@@ -65,6 +69,22 @@ public enum Helpers {
         case "getRunningAgents":
             let callback = dict["callback"] as? String ?? ""
             return .getRunningAgents(callback: callback)
+        case "detectPromptMemoryDirectories":
+            let callback = dict["callback"] as? String ?? ""
+            return .detectPromptMemoryDirectories(callback: callback)
+        case "choosePromptMemoryDirectory":
+            let callback = dict["callback"] as? String ?? ""
+            return .choosePromptMemoryDirectory(callback: callback)
+        case "startPromptMemoryScan":
+            guard let scanId = dict["scanId"] as? String,
+                  let directoryObjects = dict["directories"] as? [[String: Any]],
+                  let data = try? JSONSerialization.data(withJSONObject: directoryObjects),
+                  let directories = try? JSONDecoder.promptMemory.decode([PromptMemoryDirectory].self, from: data)
+            else { return nil }
+            return .startPromptMemoryScan(scanId: scanId, directories: directories)
+        case "cancelPromptMemoryScan":
+            guard let scanId = dict["scanId"] as? String else { return nil }
+            return .cancelPromptMemoryScan(scanId: scanId)
         case "showSnippetWheel":
             return .showSnippetWheel
         case "captureTerminal":

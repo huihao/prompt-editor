@@ -9,6 +9,7 @@ public class MainWindow: NSObject, WKScriptMessageHandler, NSWindowDelegate {
     private var snippetWheelWindow: SnippetWheelWindow?
     private var captureServer: TerminalCaptureServer?
     private var terminalContext = TerminalContext.empty
+    private let promptMemoryScanner = PromptMemoryScanner()
 
     public override init() {
         // Calculate window frame: centered, 720x520
@@ -187,6 +188,14 @@ public class MainWindow: NSObject, WKScriptMessageHandler, NSWindowDelegate {
             handleReadFile(path: path, callback: callback)
         case .getRunningAgents(let callback):
             handleGetRunningAgents(callback: callback)
+        case .detectPromptMemoryDirectories(let callback):
+            handleDetectPromptMemoryDirectories(callback: callback)
+        case .choosePromptMemoryDirectory(let callback):
+            handleChoosePromptMemoryDirectory(callback: callback)
+        case .startPromptMemoryScan(let scanId, let directories):
+            handleStartPromptMemoryScan(scanId: scanId, directories: directories)
+        case .cancelPromptMemoryScan(let scanId):
+            promptMemoryScanner.cancel(scanId: scanId)
         case .showSnippetWheel:
             handleShowSnippetWheel()
         case .captureTerminal(let maxLines, let callback):
@@ -276,6 +285,60 @@ public class MainWindow: NSObject, WKScriptMessageHandler, NSWindowDelegate {
                 print("JS Error: \(error)")
             }
         }
+    }
+
+    private func callJSFunction<T: Encodable>(_ name: String, argument: T) {
+        guard !name.isEmpty,
+              let data = try? JSONEncoder.promptMemory.encode(argument),
+              let json = String(data: data, encoding: .utf8)
+        else { return }
+        callJS("window['\(Helpers.escapeForJS(name))']?.(\(json))")
+    }
+
+    // MARK: - Prompt Memory Handlers
+
+    private func handleDetectPromptMemoryDirectories(callback: String) {
+        callJSFunction(callback, argument: promptMemoryScanner.detectDefaultDirectories())
+    }
+
+    private func handleChoosePromptMemoryDirectory(callback: String) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.message = "Select a prompt memory directory"
+
+        panel.beginSheetModal(for: window) { [weak self] result in
+            let path: String? = result == .OK ? panel.url?.path : nil
+            self?.callJSFunction(callback, argument: path)
+        }
+    }
+
+    private func handleStartPromptMemoryScan(scanId: String, directories: [PromptMemoryDirectory]) {
+        promptMemoryScanner.start(
+            scanId: scanId,
+            directories: directories,
+            progress: { [weak self] progress in
+                DispatchQueue.main.async { [weak self] in
+                    self?.callJSFunction("onPromptMemoryScanProgress", argument: progress)
+                }
+            },
+            batch: { [weak self] items in
+                DispatchQueue.main.async { [weak self] in
+                    self?.callJSFunction("onPromptMemoryScanBatch", argument: PromptMemoryItemBatch(scanId: scanId, items: items))
+                }
+            },
+            completed: { [weak self] items in
+                DispatchQueue.main.async { [weak self] in
+                    self?.callJSFunction("onPromptMemoryScanCompleted", argument: PromptMemoryItemBatch(scanId: scanId, items: items))
+                }
+            },
+            failed: { [weak self] message in
+                DispatchQueue.main.async { [weak self] in
+                    self?.callJSFunction("onPromptMemoryScanFailed", argument: PromptMemoryFailure(scanId: scanId, error: message))
+                }
+            }
+        )
     }
     
     // MARK: - Terminal Capture

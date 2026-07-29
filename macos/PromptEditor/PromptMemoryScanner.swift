@@ -3,6 +3,7 @@ import Foundation
 public final class PromptMemoryScanner {
     private let homeDirectory: URL
     private let parsers: [PromptMemoryAgent: PromptMemoryParser]
+    private var runningTasks: [String: Task<Void, Never>] = [:]
 
     public init(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) {
         self.homeDirectory = homeDirectory
@@ -44,5 +45,76 @@ public final class PromptMemoryScanner {
             items.append(contentsOf: await parser.parse(directory: directory))
         }
         return PromptMemoryDeduper.deduplicate(items)
+    }
+
+    public func start(
+        scanId: String,
+        directories: [PromptMemoryDirectory],
+        progress: @escaping (PromptMemoryProgress) -> Void,
+        batch: @escaping ([PromptMemoryItem]) -> Void,
+        completed: @escaping ([PromptMemoryItem]) -> Void,
+        failed: @escaping (String) -> Void
+    ) {
+        cancel(scanId: scanId)
+        runningTasks[scanId] = Task(priority: .utility) {
+            var allItems: [PromptMemoryItem] = []
+            for directory in directories {
+                if Task.isCancelled { return }
+                guard directory.exists else {
+                    progress(PromptMemoryProgress(
+                        scanId: scanId,
+                        directoryId: directory.id,
+                        status: .skipped,
+                        filesRead: 0,
+                        extracted: 0,
+                        skipped: 0,
+                        error: nil
+                    ))
+                    continue
+                }
+                guard let parser = parsers[directory.agent] else {
+                    progress(PromptMemoryProgress(
+                        scanId: scanId,
+                        directoryId: directory.id,
+                        status: .failed,
+                        filesRead: 0,
+                        extracted: 0,
+                        skipped: 0,
+                        error: "Unsupported agent"
+                    ))
+                    continue
+                }
+
+                progress(PromptMemoryProgress(
+                    scanId: scanId,
+                    directoryId: directory.id,
+                    status: .scanning,
+                    filesRead: 0,
+                    extracted: 0,
+                    skipped: 0,
+                    error: nil
+                ))
+                let items = await parser.parse(directory: directory)
+                if Task.isCancelled { return }
+                let dedupedBatch = PromptMemoryDeduper.deduplicate(items)
+                allItems.append(contentsOf: dedupedBatch)
+                batch(dedupedBatch)
+                progress(PromptMemoryProgress(
+                    scanId: scanId,
+                    directoryId: directory.id,
+                    status: .completed,
+                    filesRead: 0,
+                    extracted: dedupedBatch.count,
+                    skipped: 0,
+                    error: nil
+                ))
+            }
+            completed(PromptMemoryDeduper.deduplicate(allItems))
+        }
+    }
+
+    public func cancel(scanId: String) {
+        runningTasks[scanId]?.cancel()
+        runningTasks[scanId] = nil
     }
 }

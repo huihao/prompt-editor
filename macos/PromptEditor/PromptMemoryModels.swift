@@ -97,6 +97,16 @@ public struct PromptMemoryScanRequest: Codable, Equatable {
     public let directories: [PromptMemoryDirectory]
 }
 
+public struct PromptMemoryItemBatch: Codable, Equatable {
+    public let scanId: String
+    public let items: [PromptMemoryItem]
+}
+
+public struct PromptMemoryFailure: Codable, Equatable {
+    public let scanId: String
+    public let error: String
+}
+
 public extension JSONEncoder {
     static var promptMemory: JSONEncoder {
         let encoder = JSONEncoder()
