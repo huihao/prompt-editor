@@ -192,6 +192,9 @@ $RECYCLE.BIN/
 # Local development config
 .local/
 
+# Isolated feature worktrees
+.worktrees/
+
 # Claude Code specific
 .claude/
 
