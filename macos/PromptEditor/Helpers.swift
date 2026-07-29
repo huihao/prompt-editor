@@ -24,6 +24,10 @@ public enum Helpers {
         case readFile(path: String, callback: String)
         case getRunningAgents(callback: String)
         case showSnippetWheel
+        case captureTerminal(maxLines: Int, callback: String)
+        case installShellIntegration(callback: String)
+        case uninstallShellIntegration(callback: String)
+        case getShellIntegrationStatus(callback: String)
         case unknown(String)
     }
 
@@ -63,6 +67,19 @@ public enum Helpers {
             return .getRunningAgents(callback: callback)
         case "showSnippetWheel":
             return .showSnippetWheel
+        case "captureTerminal":
+            let maxLines = dict["maxLines"] as? Int ?? 500
+            let callback = dict["callback"] as? String ?? ""
+            return .captureTerminal(maxLines: maxLines, callback: callback)
+        case "installShellIntegration":
+            let callback = dict["callback"] as? String ?? ""
+            return .installShellIntegration(callback: callback)
+        case "uninstallShellIntegration":
+            let callback = dict["callback"] as? String ?? ""
+            return .uninstallShellIntegration(callback: callback)
+        case "getShellIntegrationStatus":
+            let callback = dict["callback"] as? String ?? ""
+            return .getShellIntegrationStatus(callback: callback)
         default:
             return .unknown(action)
         }

@@ -265,6 +265,217 @@
       }
     }
     
+    /* ─── AI Ghost Text ────────────────────────────────── */
+    .cm-ai-suggestion {
+      color: #888;
+      opacity: 0.6;
+      font-style: italic;
+      pointer-events: none;
+      user-select: none;
+      white-space: pre;
+    }
+    .cm-ai-suggestion-loading {
+      animation: ai-pulse 1s ease-in-out infinite;
+    }
+    @keyframes ai-pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.8; }
+    }
+    @media (prefers-color-scheme: dark) {
+      .cm-ai-suggestion { color: #aaa; }
+    }
+
+    /* ─── AI Enhance button accent ───────────────────────── */
+    #toolbar button.ai-enhance-btn {
+      color: #a855f7;
+      border-color: rgba(168,85,247,0.35);
+    }
+    #toolbar button.ai-enhance-btn:hover {
+      background: rgba(168,85,247,0.12);
+      border-color: #a855f7;
+    }
+    @media (prefers-color-scheme: dark) {
+      #toolbar button.ai-enhance-btn { color: #c084fc; border-color: rgba(192,132,252,0.35); }
+      #toolbar button.ai-enhance-btn:hover { background: rgba(192,132,252,0.15); border-color: #c084fc; }
+    }
+
+    /* ─── AI Settings Modal ──────────────────────────────── */
+    .ai-settings-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1100;
+      backdrop-filter: blur(4px);
+    }
+    .ai-settings-modal {
+      background: var(--bg, #fff);
+      border: 1px solid var(--border, #e5e5e5);
+      border-radius: 12px;
+      width: 420px;
+      max-width: 92vw;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .ai-settings-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid var(--border, #e5e5e5);
+      font-weight: 600; font-size: 14px;
+    }
+    .ai-settings-title { font-size: 14px; font-weight: 600; }
+    .ai-settings-close {
+      background: none; border: none; font-size: 20px; cursor: pointer;
+      color: var(--fg, #1d1d1f); opacity: 0.6; line-height: 1;
+      padding: 0 4px;
+    }
+    .ai-settings-close:hover { opacity: 1; }
+    .ai-settings-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+    .ai-settings-field { display: flex; flex-direction: column; gap: 5px; }
+    .ai-settings-field label {
+      font-size: 12px; font-weight: 600;
+      color: var(--fg, #1d1d1f); opacity: 0.7; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .ai-settings-field select,
+    .ai-settings-field input[type="text"],
+    .ai-settings-field input[type="password"] {
+      width: 100%; padding: 7px 10px; font-size: 13px;
+      background: var(--btn-bg, #f5f5f7);
+      border: 1px solid var(--border, #e5e5e5);
+      border-radius: 7px; color: var(--fg, #1d1d1f);
+      outline: none; box-sizing: border-box;
+    }
+    .ai-settings-field select:focus,
+    .ai-settings-field input:focus { border-color: #a855f7; }
+    .ai-model-row { display: flex; gap: 8px; }
+    .ai-model-row select { flex: 0 0 auto; max-width: 180px; }
+    .ai-model-row input { flex: 1; }
+    .ai-apikey-row { display: flex; gap: 8px; }
+    .ai-apikey-row input { flex: 1; }
+    .ai-apikey-row button {
+      padding: 7px 10px; font-size: 14px; cursor: pointer;
+      background: var(--btn-bg, #f5f5f7); border: 1px solid var(--border, #e5e5e5);
+      border-radius: 7px; color: var(--fg, #1d1d1f);
+    }
+    .ai-settings-toggle { flex-direction: row !important; align-items: center; justify-content: space-between; }
+    .ai-settings-toggle label { text-transform: none !important; font-size: 13px !important; opacity: 1 !important; }
+    .ai-test-result {
+      padding: 9px 12px; border-radius: 7px; font-size: 12px; font-weight: 500;
+    }
+    .ai-test-loading { background: rgba(168,85,247,0.1); color: #a855f7; }
+    .ai-test-success { background: rgba(52,199,89,0.12); color: #1a7f37; }
+    .ai-test-error { background: rgba(255,59,48,0.1); color: #d03030; }
+    .ai-settings-footer {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 16px; border-top: 1px solid var(--border, #e5e5e5);
+    }
+    .ai-btn-primary {
+      padding: 7px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+      background: #a855f7; color: #fff; border: none; border-radius: 7px;
+    }
+    .ai-btn-primary:hover { background: #9333ea; }
+    .ai-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .ai-btn-secondary {
+      padding: 7px 14px; font-size: 13px; cursor: pointer;
+      background: var(--btn-bg, #f5f5f7); color: var(--fg, #1d1d1f);
+      border: 1px solid var(--border, #e5e5e5); border-radius: 7px;
+    }
+    .ai-btn-secondary:hover { background: var(--btn-hover, #ebebeb); }
+    .ai-btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+    @media (prefers-color-scheme: dark) {
+      .ai-settings-modal { background: #1e1e1e; border-color: #3e3e3e; }
+      .ai-settings-header { border-color: #3e3e3e; }
+      .ai-settings-field select,
+      .ai-settings-field input { background: #2d2d2d; border-color: #3e3e3e; color: #d4d4d4; }
+      .ai-apikey-row button { background: #2d2d2d; border-color: #3e3e3e; color: #d4d4d4; }
+      .ai-settings-footer { border-color: #3e3e3e; }
+      .ai-btn-secondary { background: #2d2d2d; border-color: #3e3e3e; color: #d4d4d4; }
+      .ai-btn-secondary:hover { background: #3a3a3a; }
+      .ai-test-success { background: rgba(52,199,89,0.15); color: #4caf72; }
+      .ai-test-error { background: rgba(255,80,80,0.15); color: #ff6b6b; }
+    }
+
+    /* ─── AI Enhance Modal ───────────────────────────────── */
+    .ai-enhance-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1100;
+      backdrop-filter: blur(4px);
+    }
+    .ai-enhance-modal {
+      background: var(--bg, #fff);
+      border: 1px solid var(--border, #e5e5e5);
+      border-radius: 12px;
+      width: 86vw; max-width: 1100px;
+      height: 72vh; max-height: 680px;
+      box-shadow: 0 24px 72px rgba(0,0,0,0.28);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .ai-enhance-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 13px 16px 11px;
+      border-bottom: 1px solid var(--border, #e5e5e5);
+    }
+    .ai-enhance-title { font-size: 14px; font-weight: 600; }
+    .ai-enhance-header-actions { display: flex; align-items: center; gap: 12px; }
+    .ai-enhance-status {
+      font-size: 12px; font-weight: 500;
+      padding: 3px 8px; border-radius: 20px;
+    }
+    .ai-status-generating { background: rgba(168,85,247,0.12); color: #a855f7; }
+    .ai-status-done { background: rgba(52,199,89,0.12); color: #1a7f37; }
+    .ai-status-error { background: rgba(255,59,48,0.1); color: #d03030; }
+    .ai-enhance-cursor {
+      animation: ai-blink 1s step-end infinite;
+      color: #a855f7;
+    }
+    @keyframes ai-blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    .ai-enhance-body {
+      flex: 1; display: flex; overflow: hidden;
+    }
+    .ai-diff-panel {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden;
+    }
+    .ai-diff-label {
+      padding: 6px 14px; font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      background: var(--btn-bg, #f5f5f7);
+      border-bottom: 1px solid var(--border, #e5e5e5);
+      color: var(--fg, #1d1d1f); opacity: 0.6;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .ai-diff-content {
+      flex: 1; overflow-y: auto; overflow-x: hidden;
+      padding: 14px 16px;
+      font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+      font-size: 13px; line-height: 1.6;
+      white-space: pre-wrap; word-break: break-word;
+      color: var(--fg, #1d1d1f);
+    }
+    .ai-diff-enhanced { color: #1a7f37; }
+    .ai-diff-divider {
+      width: 1px;
+      background: var(--border, #e5e5e5);
+      flex-shrink: 0;
+    }
+    .ai-enhance-footer {
+      display: flex; align-items: center; gap: 8px;
+      padding: 11px 16px;
+      border-top: 1px solid var(--border, #e5e5e5);
+    }
+    @media (prefers-color-scheme: dark) {
+      .ai-enhance-modal { background: #1e1e1e; border-color: #3e3e3e; }
+      .ai-enhance-header, .ai-diff-label { border-color: #3e3e3e; }
+      .ai-diff-label { background: #252525; }
+      .ai-diff-divider { background: #3e3e3e; }
+      .ai-enhance-footer { border-color: #3e3e3e; }
+      .ai-diff-enhanced { color: #4caf72; }
+      .ai-status-done { background: rgba(52,199,89,0.15); color: #4caf72; }
+      .ai-status-error { background: rgba(255,80,80,0.15); color: #ff6b6b; }
+    }
+
     /* File Completion Preview */
     .file-completion-preview {
       padding: 8px;
@@ -3461,6 +3672,12 @@
       </button>
       <button id="btn-files" class="icon-btn-toolbar" title="File References @ (⌘⇧F)">
         <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+      </button>
+      <button id="btn-ai-enhance" class="icon-btn-toolbar ai-enhance-btn" title="AI Enhance Prompt (⌘⇧E)">
+        <svg viewBox="0 0 24 24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg>
+      </button>
+      <button id="btn-ai-settings" class="icon-btn-toolbar" title="AI Settings">
+        <svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
       </button>
       <div class="toolbar-separator"></div>
       <button id="btn-save" class="icon-btn-toolbar accent" title="Save to History (⌘S)">

@@ -15,7 +15,7 @@ let package = Package(
             dependencies: ["PromptEditorCore"],
             path: "PromptEditor",
             exclude: ["Info.plist", "main.swift", "BridgingHeader.h"],
-            sources: ["Helpers.swift", "MainWindow.swift", "StatusBarItem.swift", "AppDelegate.swift", "TerminalSender.swift", "AgentDetector.swift", "SnippetWheelWindow.swift", "SnippetDataManager.swift"],
+            sources: ["Helpers.swift", "MainWindow.swift", "StatusBarItem.swift", "AppDelegate.swift", "TerminalSender.swift", "AgentDetector.swift", "SnippetWheelWindow.swift", "SnippetDataManager.swift", "TerminalCaptureServer.swift", "ShellIntegrationScripts.swift"],
             swiftSettings: [
                 .unsafeFlags(["-I", "Libraries"]),
             ],

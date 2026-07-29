@@ -32,6 +32,9 @@ import {
 import { showSnippetWheel, hideSnippetWheel, isSnippetWheelVisible } from './snippet-wheel';
 import { snippetManagerUI } from './snippet-manager-ui';
 import type { Snippet } from './snippet-manager';
+import { aiAutocomplete } from './ai-autocomplete';
+import { enhancePrompt } from './ai-enhance';
+import { showAISettingsModal } from './ai-config';
 
 const STORAGE_KEY = 'promptEditor:draft';
 
@@ -288,6 +291,13 @@ const state = EditorState.create({
         },
       },
       {
+        key: 'Mod-Shift-e',
+        run: () => {
+          enhancePrompt(view);
+          return true;
+        },
+      },
+      {
         key: 'ArrowUp',
         run: (view) => {
           // Only trigger at first line start
@@ -324,6 +334,7 @@ const state = EditorState.create({
     autoSave,
     imagePasteHandler(),
     ...templateEditMode(),
+    ...aiAutocomplete(),
   ],
 });
 
@@ -627,6 +638,16 @@ document.getElementById('btn-save')!.addEventListener('click', () => {
   // Save with empty name - user can edit it later in the history list
   bridge.saveToHistory(content, '');
   resetHistoryNavigation();
+});
+
+// AI Enhance button
+document.getElementById('btn-ai-enhance')?.addEventListener('click', () => {
+  enhancePrompt(view);
+});
+
+// AI Settings button
+document.getElementById('btn-ai-settings')?.addEventListener('click', () => {
+  showAISettingsModal();
 });
 
 // Snippets button (CS-style wheel)

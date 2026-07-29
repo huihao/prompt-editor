@@ -7,6 +7,8 @@ public class MainWindow: NSObject, WKScriptMessageHandler, NSWindowDelegate {
     public let webView: WKWebView
     public var isPipeMode = false
     private var snippetWheelWindow: SnippetWheelWindow?
+    private var captureServer: TerminalCaptureServer?
+    private var terminalContext = TerminalContext.empty
 
     public override init() {
         // Calculate window frame: centered, 720x520
@@ -72,6 +74,13 @@ public class MainWindow: NSObject, WKScriptMessageHandler, NSWindowDelegate {
 
         // Load editor HTML
         loadEditor()
+        
+        // Start terminal capture server
+        startCaptureServer()
+    }
+    
+    deinit {
+        captureServer?.stop()
     }
 
     public func loadEditor() {
@@ -180,6 +189,14 @@ public class MainWindow: NSObject, WKScriptMessageHandler, NSWindowDelegate {
             handleGetRunningAgents(callback: callback)
         case .showSnippetWheel:
             handleShowSnippetWheel()
+        case .captureTerminal(let maxLines, let callback):
+            handleCaptureTerminal(maxLines: maxLines, callback: callback)
+        case .installShellIntegration(let callback):
+            handleInstallShellIntegration(callback: callback)
+        case .uninstallShellIntegration(let callback):
+            handleUninstallShellIntegration(callback: callback)
+        case .getShellIntegrationStatus(let callback):
+            handleGetShellIntegrationStatus(callback: callback)
         case .unknown:
             break
         }
@@ -258,6 +275,169 @@ public class MainWindow: NSObject, WKScriptMessageHandler, NSWindowDelegate {
             if let error = error {
                 print("JS Error: \(error)")
             }
+        }
+    }
+    
+    // MARK: - Terminal Capture
+    
+    private func startCaptureServer() {
+        captureServer = TerminalCaptureServer()
+        captureServer?.start { [weak self] message in
+            self?.handleCaptureMessage(message)
+        }
+        NSLog("[MainWindow] Terminal capture server started")
+    }
+    
+    private func handleCaptureMessage(_ message: TerminalCaptureMessage) {
+        switch message {
+        case .output(let content):
+            terminalContext.recentOutput = content
+            terminalContext.lastUpdated = Date()
+            notifyTerminalContextUpdated()
+            
+        case .cwd(let path):
+            terminalContext.currentDirectory = path
+            terminalContext.lastUpdated = Date()
+            notifyTerminalContextUpdated()
+            
+        case .command(let cmd):
+            terminalContext.lastCommand = cmd
+            terminalContext.lastExitCode = nil
+            notifyTerminalContextUpdated()
+            
+        case .commandFinished(let cmd, let exitCode, let output):
+            terminalContext.lastCommand = cmd
+            terminalContext.lastExitCode = exitCode
+            terminalContext.recentOutput = output
+            terminalContext.lastUpdated = Date()
+            notifyTerminalContextUpdated()
+            
+        case .size, .unknown:
+            break
+        }
+    }
+    
+    private func notifyTerminalContextUpdated() {
+        guard let json = terminalContext.toJSON() else { return }
+        let escaped = Helpers.escapeForJS(json)
+        callJS("window.terminalContext?.onUpdate('\(escaped)')")
+    }
+    
+    private func handleCaptureTerminal(maxLines: Int, callback: String) {
+        // Try immediate capture methods (tmux or shell hooks)
+        Task { [weak self] in
+            guard let self = self else { return }
+            
+            // 1. Try tmux capture-pane first
+            let captured: TerminalContext
+            if TmuxDetector.hasActiveTmux() {
+                captured = await self.captureViaTmux(maxLines: maxLines)
+            } else {
+                captured = TerminalContext.empty
+            }
+            
+            // 2. Fall back to accumulated context from shell hooks
+            let result: TerminalContext
+            if captured.recentOutput == nil || captured.recentOutput?.isEmpty == true {
+                result = self.terminalContext
+            } else {
+                result = captured
+            }
+            
+            await MainActor.run {
+                if let json = result.toJSON() {
+                    let escaped = Helpers.escapeForJS(json)
+                    self.callJS("window['\(callback)']('\(escaped)')")
+                } else {
+                    self.callJS("window['\(callback)'](null, 'Failed to encode context')")
+                }
+            }
+        }
+    }
+    
+    private func captureViaTmux(maxLines: Int) async -> TerminalContext {
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+                process.arguments = ["tmux", "capture-pane", "-p", "-S", "-\(maxLines)"]
+                
+                let pipe = Pipe()
+                process.standardOutput = pipe
+                process.standardError = Pipe()
+                
+                do {
+                    try process.run()
+                    process.waitUntilExit()
+                    
+                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                    let output = String(data: data, encoding: .utf8) ?? ""
+                    
+                    // Get current working directory from tmux
+                    let cwdProcess = Process()
+                    cwdProcess.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+                    cwdProcess.arguments = ["tmux", "display-message", "-p", "#{pane_current_path}"]
+                    let cwdPipe = Pipe()
+                    cwdProcess.standardOutput = cwdPipe
+                    try? cwdProcess.run()
+                    cwdProcess.waitUntilExit()
+                    let cwdData = cwdPipe.fileHandleForReading.readDataToEndOfFile()
+                    let cwd = String(data: cwdData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                    
+                    let context = TerminalContext(
+                        currentDirectory: cwd,
+                        recentOutput: output,
+                        lastUpdated: Date()
+                    )
+                    continuation.resume(returning: context)
+                } catch {
+                    continuation.resume(returning: TerminalContext.empty)
+                }
+            }
+        }
+    }
+    
+    // MARK: - Shell Integration Management
+    
+    private func handleInstallShellIntegration(callback: String) {
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let results = ShellIntegrationScripts.installAll()
+            let success = results.allSatisfy { $0.success }
+            let messages = results.map { "\($0.shell.displayName): \($0.message)" }.joined(separator: "\\n")
+            
+            DispatchQueue.main.async {
+                let escapedMsg = Helpers.escapeForJS(messages)
+                self?.callJS("window['\(callback)'](\(success), '\(escapedMsg)')")
+            }
+        }
+    }
+    
+    private func handleUninstallShellIntegration(callback: String) {
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let results = ShellIntegrationScripts.uninstallAll()
+            let success = results.allSatisfy { $0.success }
+            let messages = results.map { "\($0.shell.displayName): \($0.message)" }.joined(separator: "\\n")
+            
+            DispatchQueue.main.async {
+                let escapedMsg = Helpers.escapeForJS(messages)
+                self?.callJS("window['\(callback)'](\(success), '\(escapedMsg)')")
+            }
+        }
+    }
+    
+    private func handleGetShellIntegrationStatus(callback: String) {
+        let status: [String: Bool] = [
+            "zsh": ShellIntegrationScripts.isInstalled(for: .zsh),
+            "bash": ShellIntegrationScripts.isInstalled(for: .bash),
+            "fish": ShellIntegrationScripts.isInstalled(for: .fish),
+        ]
+        
+        if let jsonData = try? JSONSerialization.data(withJSONObject: status),
+           let json = String(data: jsonData, encoding: .utf8) {
+            let escaped = Helpers.escapeForJS(json)
+            callJS("window['\(callback)']('\(escaped)')")
+        } else {
+            callJS("window['\(callback)'](null)")
         }
     }
     

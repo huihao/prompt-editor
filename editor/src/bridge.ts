@@ -9,6 +9,7 @@ import {
   previewConversion 
 } from './format-converter';
 import { workspaceManager, Workspace } from './workspace-manager';
+import { terminalContext, TerminalContextData, ShellIntegrationStatus } from './terminal-context';
 
 declare global {
   interface Window {
@@ -131,6 +132,14 @@ interface NativeBridge {
   // Template methods
   showTemplates: () => void;
   hideTemplates: () => void;
+  // Terminal context methods
+  getTerminalContext: () => TerminalContextData;
+  captureTerminal: (maxLines?: number) => Promise<TerminalContextData | null>;
+  installShellIntegration: () => Promise<{ success: boolean; message: string }>;
+  uninstallShellIntegration: () => Promise<{ success: boolean; message: string }>;
+  getShellIntegrationStatus: () => Promise<ShellIntegrationStatus | null>;
+  formatTerminalContext: () => string;
+  onTerminalContextUpdate: ((context: TerminalContextData) => void) | null;
 }
 
 let editorView: EditorView | null = null;
@@ -189,6 +198,13 @@ export const bridge: NativeBridge = {
       setContent: (text: string) => bridge.setContent(text),
       focus: () => view.focus(),
     };
+    
+    // Subscribe to terminal context updates and forward to bridge callback
+    terminalContext.subscribe((ctx) => {
+      if (bridge.onTerminalContextUpdate) {
+        bridge.onTerminalContextUpdate(ctx);
+      }
+    });
   },
 
   getContent(): string {
@@ -585,6 +601,33 @@ export const bridge: NativeBridge = {
   },
 
   onAgentsUpdated: null as ((agents: DetectedAgent[]) => void) | null,
+
+  // Terminal context methods
+  getTerminalContext() {
+    return terminalContext.getCachedContext();
+  },
+
+  async captureTerminal(maxLines?: number) {
+    return await terminalContext.capture(maxLines);
+  },
+
+  async installShellIntegration() {
+    return await terminalContext.installShellIntegration();
+  },
+
+  async uninstallShellIntegration() {
+    return await terminalContext.uninstallShellIntegration();
+  },
+
+  async getShellIntegrationStatus() {
+    return await terminalContext.getShellIntegrationStatus();
+  },
+
+  formatTerminalContext() {
+    return terminalContext.formatAsContext();
+  },
+
+  onTerminalContextUpdate: null as ((context: TerminalContextData) => void) | null,
 
   showTemplates() {
     const { showTemplatePanel } = require('./template');
