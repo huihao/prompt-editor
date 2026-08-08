@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SnippetManagerUI } from '../snippet-manager-ui';
 import { snippetManager } from '../snippet-manager';
+import editorHTML from '../../index.html?raw';
 
 const snippetData = {
   version: '1.0',
@@ -131,5 +132,13 @@ describe('SnippetManagerUI interactions', () => {
     confirm.mockReturnValue(true);
     document.querySelector<HTMLElement>('.snippet-manager-close')!.click();
     expect(document.activeElement).toBe(opener);
+  });
+
+  it('defines a narrow-window manager override', () => {
+    const responsiveBlock = editorHTML.slice(editorHTML.indexOf('@media (max-width: 700px)'));
+
+    expect(responsiveBlock).toContain('.snippet-manager-modal');
+    expect(responsiveBlock).toContain('min-width: 0');
+    expect(responsiveBlock).toContain('resize: none');
   });
 });
