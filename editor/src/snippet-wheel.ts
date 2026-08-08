@@ -11,6 +11,10 @@ interface WheelItem {
   data?: Category | Snippet;
 }
 
+export function getSnippetWheelRadius(viewportWidth: number): number {
+  return viewportWidth <= 700 ? 140 : 180;
+}
+
 declare global {
   interface Window {
     webkit?: {
@@ -32,8 +36,6 @@ class SnippetWheel {
   private onSelectSnippet: ((snippet: Snippet) => void) | null = null;
   private opener: HTMLElement | null = null;
   private focusedItemIndex = 0;
-
-  private readonly WHEEL_RADIUS = 180;
 
   async show(
     editorView?: EditorView,
@@ -192,8 +194,9 @@ class SnippetWheel {
     const angleStep = (2 * Math.PI) / this.currentItems.length;
     this.currentItems.forEach((item, index) => {
       const angle = -Math.PI / 2 + index * angleStep;
-      const x = Math.cos(angle) * this.WHEEL_RADIUS;
-      const y = Math.sin(angle) * this.WHEEL_RADIUS;
+      const radius = getSnippetWheelRadius(window.innerWidth);
+      const x = Math.cos(angle) * radius;
+      const y = Math.sin(angle) * radius;
       const button = this.createWheelButton(item, index);
       button.style.left = `calc(50% + ${x}px)`;
       button.style.top = `calc(50% + ${y}px)`;

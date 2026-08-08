@@ -69,6 +69,18 @@ describe('SnippetManagerUI interactions', () => {
     expect(item?.classList.contains('collapsed')).toBe(true);
   });
 
+  it('toggles a focused category with the keyboard', async () => {
+    ui = new SnippetManagerUI();
+    await ui.open();
+    const header = document.querySelector<HTMLElement>('[data-category-id="root"]')!;
+
+    header.focus();
+    header.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+    expect(header.closest('.category-tree-item')?.classList.contains('collapsed')).toBe(true);
+    expect(header.getAttribute('aria-expanded')).toBe('false');
+  });
+
   it('dispatches one action after repeated list renders', async () => {
     ui = new SnippetManagerUI();
     const openForm = vi.spyOn(ui as any, 'showEditSnippetView');
@@ -99,19 +111,41 @@ describe('SnippetManagerUI interactions', () => {
     await ui.open();
     document.querySelector<HTMLElement>('[data-action="copy-snippet"]')!.click();
 
-    expect((document.querySelector('#snippet-id') as HTMLInputElement).value).toBe('base-copy');
+    const id = document.querySelector('#snippet-id') as HTMLInputElement;
+    expect(id.type).toBe('hidden');
+    expect(id.value).toMatch(/^snippet-/);
+    expect(id.value).not.toContain('base');
     expect((document.querySelector('#snippet-content') as HTMLTextAreaElement).value).toBe('<img src=x onerror=alert(1)>');
   });
 
-  it('uses inline validation and focuses the first invalid field', async () => {
+  it('generates hidden identifiers for new snippets and categories', async () => {
+    ui = new SnippetManagerUI();
+    await ui.open();
+
+    document.querySelector<HTMLElement>('#btn-add-snippet')!.click();
+    const snippetId = document.querySelector('#snippet-id') as HTMLInputElement;
+    expect(snippetId.type).toBe('hidden');
+    expect(snippetId.value).toMatch(/^snippet-/);
+    expect(document.activeElement).toBe(document.querySelector('#snippet-name'));
+
+    document.querySelector<HTMLElement>('#btn-cancel')!.click();
+    document.querySelector<HTMLElement>('#btn-add-category')!.click();
+    const categoryId = document.querySelector('#category-id') as HTMLInputElement;
+    expect(categoryId.type).toBe('hidden');
+    expect(categoryId.value).toMatch(/^category-/);
+    expect(categoryId.value).not.toBe(snippetId.value);
+    expect(document.activeElement).toBe(document.querySelector('#category-name'));
+  });
+
+  it('uses inline validation and focuses the first invalid user field', async () => {
     ui = new SnippetManagerUI();
     await ui.open();
     document.querySelector<HTMLElement>('#btn-add-snippet')!.click();
     document.querySelector<HTMLElement>('#btn-save-snippet')!.click();
     await Promise.resolve();
 
-    expect(document.querySelector('[data-error-for="snippet-id"]')?.textContent).toContain('required');
-    expect(document.activeElement).toBe(document.querySelector('#snippet-id'));
+    expect(document.querySelector('[data-error-for="snippet-name"]')?.textContent).toContain('required');
+    expect(document.activeElement).toBe(document.querySelector('#snippet-name'));
   });
 
   it('confirms before discarding a dirty form and restores opener focus', async () => {
@@ -140,5 +174,16 @@ describe('SnippetManagerUI interactions', () => {
     expect(responsiveBlock).toContain('.snippet-manager-modal');
     expect(responsiveBlock).toContain('min-width: 0');
     expect(responsiveBlock).toContain('resize: none');
+  });
+
+  it('defines explicit light text colors for the dark manager', () => {
+    const start = editorHTML.indexOf('/* Dark theme for snippet manager */');
+    const end = editorHTML.indexOf('/* Responsive adjustments */', start);
+    const darkManagerBlock = editorHTML.slice(start, end);
+
+    expect(darkManagerBlock).toContain('color: #f5f5f7;');
+    expect(darkManagerBlock).toContain('.snippet-manager-modal input');
+    expect(darkManagerBlock).toContain('.snippet-manager-modal button');
+    expect(darkManagerBlock).toContain('color: #b8b8bd;');
   });
 });

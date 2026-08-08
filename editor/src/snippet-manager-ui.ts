@@ -5,6 +5,13 @@ import logger from './logger';
 type ManagerView = 'list' | 'edit-snippet' | 'edit-category' | 'logs';
 type MessageTone = 'error' | 'success';
 
+export function generateIdentifier(prefix: 'snippet' | 'category'): string {
+  const suffix = typeof globalThis.crypto?.randomUUID === 'function'
+    ? globalThis.crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return `${prefix}-${suffix}`;
+}
+
 export class SnippetManagerUI {
   private overlay: HTMLElement | null = null;
   private container: HTMLElement | null = null;
@@ -107,6 +114,13 @@ export class SnippetManagerUI {
 
   private handleKeyDown = (event: KeyboardEvent): void => {
     if (!this.overlay) return;
+    const activeElement = document.activeElement as HTMLElement | null;
+    if ((event.key === 'Enter' || event.key === ' ') && activeElement?.classList.contains('tree-item-header')) {
+      event.preventDefault();
+      this.toggleCategory(activeElement.dataset.categoryId || '');
+      return;
+    }
+
     if (event.key === 'Escape') {
       event.preventDefault();
       if (this.currentView === 'list') this.close();
@@ -283,11 +297,14 @@ export class SnippetManagerUI {
     this.editingItem = editing ? snippet || null : null;
     this.selectedCategoryId = categoryId || null;
     const selectedCategoryId = categoryId || this.firstCategoryId(snippetManager.getCategories()) || '';
+    const snippetId = editing ? snippet?.id || '' : generateIdentifier('snippet');
     this.container.innerHTML = `
       <form class="snippet-edit-form" novalidate>
         <h4>${editing ? 'Edit Snippet' : 'New Snippet'}</h4>
         <div class="form-scroll-container">
-          ${this.renderTextField('snippet-id', 'ID', snippet?.id || '', 'unique-snippet-id', true, editing)}
+          ${editing
+            ? this.renderTextField('snippet-id', 'ID', snippetId, 'unique-snippet-id', true, true)
+            : `<input type="hidden" id="snippet-id" value="${escapeHTML(snippetId)}" />`}
           ${this.renderTextField('snippet-name', 'Name', snippet?.name || '', 'Snippet name', true)}
           ${this.renderTextField('snippet-desc', 'Description', snippet?.description || '', 'Brief description')}
           <div class="form-group">
@@ -307,7 +324,7 @@ export class SnippetManagerUI {
       </form>
     `;
     this.captureFormBaseline();
-    this.container.querySelector<HTMLInputElement>(editing ? '#snippet-name' : '#snippet-id')?.focus();
+    this.container.querySelector<HTMLInputElement>('#snippet-name')?.focus();
   }
 
   private renderTextField(id: string, label: string, value: string, placeholder: string, required = false, disabled = false): string {
@@ -362,11 +379,14 @@ export class SnippetManagerUI {
     const editing = Boolean(category);
     this.currentView = 'edit-category';
     this.editingItem = category || null;
+    const categoryId = editing ? category?.id || '' : generateIdentifier('category');
     this.container.innerHTML = `
       <form class="snippet-edit-form" novalidate>
         <h4>${editing ? 'Edit Category' : 'New Category'}</h4>
         <div class="form-scroll-container">
-          ${this.renderTextField('category-id', 'ID', category?.id || '', 'unique-category-id', true, editing)}
+          ${editing
+            ? this.renderTextField('category-id', 'ID', categoryId, 'unique-category-id', true, true)
+            : `<input type="hidden" id="category-id" value="${escapeHTML(categoryId)}" />`}
           ${this.renderTextField('category-name', 'Name', category?.name || '', 'Category name', true)}
           ${this.renderTextField('category-icon', 'Icon', category?.icon || '', 'Icon', true)}
           ${this.renderTextField('category-desc', 'Description', category?.description || '', 'Brief description')}
@@ -382,7 +402,7 @@ export class SnippetManagerUI {
       </form>
     `;
     this.captureFormBaseline();
-    this.container.querySelector<HTMLInputElement>(editing ? '#category-name' : '#category-id')?.focus();
+    this.container.querySelector<HTMLInputElement>('#category-name')?.focus();
   }
 
   private async handleSaveCategory(): Promise<void> {
@@ -421,16 +441,9 @@ export class SnippetManagerUI {
     if (!source) return;
     this.showEditSnippetView(this.findSnippetCategoryId(id) || undefined, {
       ...source,
-      id: this.createCopyId(source.id),
+      id: generateIdentifier('snippet'),
       name: `${source.name} Copy`,
     }, false);
-  }
-
-  private createCopyId(sourceId: string): string {
-    let candidate = `${sourceId}-copy`;
-    let suffix = 2;
-    while (snippetManager.getSnippet(candidate)) candidate = `${sourceId}-copy-${suffix++}`;
-    return candidate;
   }
 
   private async deleteCategory(id: string): Promise<void> {

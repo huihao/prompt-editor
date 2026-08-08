@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { snippetManager } from '../snippet-manager';
-import { hideSnippetWheel, showSnippetWheel } from '../snippet-wheel';
+import { getSnippetWheelRadius, hideSnippetWheel, showSnippetWheel } from '../snippet-wheel';
 
 const wheelData = {
   version: '1.0',
@@ -19,6 +19,11 @@ const wheelData = {
 };
 
 describe('SnippetWheel keyboard interactions', () => {
+  it('keeps wheel items inside a narrow viewport', () => {
+    expect(getSnippetWheelRadius(390)).toBe(140);
+    expect(getSnippetWheelRadius(1200)).toBe(180);
+  });
+
   beforeEach(async () => {
     document.body.innerHTML = '<button id="btn-snippets">Snippets</button>';
     localStorage.clear();
