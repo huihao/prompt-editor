@@ -1,4 +1,4 @@
-import { snippetManager, Category, Snippet } from './snippet-manager';
+import { Category, Snippet, snippetManager } from './snippet-manager';
 import { snippetManagerUI } from './snippet-manager-ui';
 import { EditorView } from '@codemirror/view';
 
@@ -11,17 +11,11 @@ interface WheelItem {
   data?: Category | Snippet;
 }
 
-// Bridge interface for native communication
 declare global {
   interface Window {
     webkit?: {
       messageHandlers?: {
-        snippetWheel?: {
-          postMessage: (data: any) => void;
-        };
-        promptEditor?: {
-          postMessage: (data: any) => void;
-        };
+        promptEditor?: { postMessage: (data: unknown) => void };
       };
     };
   }
@@ -36,85 +30,33 @@ class SnippetWheel {
   private currentItems: WheelItem[] = [];
   private editorView: EditorView | null = null;
   private onSelectSnippet: ((snippet: Snippet) => void) | null = null;
-  private isNativeMode = false;
+  private opener: HTMLElement | null = null;
+  private focusedItemIndex = 0;
 
-  // Wheel configuration
   private readonly WHEEL_RADIUS = 180;
-  private readonly ITEM_SIZE = 80;
 
-  constructor() {
-    this.handleKeyDown = this.handleKeyDown.bind(this);
-    this.handleNativeMessage = this.handleNativeMessage.bind(this);
-  }
-
-  init(editorView: EditorView, onSelectSnippet?: (snippet: Snippet) => void): void {
-    this.editorView = editorView;
-    if (onSelectSnippet) {
-      this.onSelectSnippet = onSelectSnippet;
-    }
-  }
-
-  /**
-   * Check if running in native app with snippet wheel support
-   */
-  private hasNativeSupport(): boolean {
-    return !!window.webkit?.messageHandlers?.promptEditor;
-  }
-
-  /**
-   * Show the snippet wheel
-   * In native mode: calls native code to show popup window
-   * In web mode: shows inline overlay
-   */
-  show(): void {
-    if (this.hasNativeSupport()) {
-      // Native mode: tell the native app to show the wheel
-      this.showNativeWheel();
-    } else {
-      // Web mode: show inline overlay
-      this.showInlineWheel();
-    }
-  }
-
-  /**
-   * Show wheel using native popup window
-   */
-  private showNativeWheel(): void {
-    // Load snippet data and send to native
-    snippetManager.loadData().then(() => {
-      const data = snippetManager.getCategories();
-      const json = JSON.stringify({ type: 'showSnippetWheel', data });
-      
-      // Send to native via bridge
-      window.webkit?.messageHandlers?.promptEditor?.postMessage({
-        action: 'showSnippetWheel'
-      });
-    });
-  }
-
-  /**
-   * Show wheel as inline overlay (for web mode)
-   */
-  private showInlineWheel(): void {
+  async show(
+    editorView?: EditorView,
+    onSelectSnippet?: (snippet: Snippet) => void,
+    opener: HTMLElement | null = document.activeElement as HTMLElement | null,
+  ): Promise<void> {
     if (this.overlay) return;
+    this.editorView = editorView || null;
+    this.onSelectSnippet = onSelectSnippet || null;
+    this.opener = opener;
+    await snippetManager.loadData();
 
-    // Load data if not already loaded
-    snippetManager.loadData().then(() => {
-      this.createOverlay();
-      this.renderRoot();
-    });
-  }
+    if (this.hasNativeSupport()) {
+      window.webkit?.messageHandlers?.promptEditor?.postMessage({ action: 'showSnippetWheel' });
+      return;
+    }
 
-  /**
-   * Handle messages from native code (when used as native popup)
-   */
-  private handleNativeMessage(event: MessageEvent): void {
-    // Handle any postMessage from native
+    this.createOverlay();
+    this.renderRoot();
   }
 
   hide(): void {
     if (!this.overlay) return;
-    
     document.removeEventListener('keydown', this.handleKeyDown);
     this.overlay.remove();
     this.overlay = null;
@@ -123,79 +65,91 @@ class SnippetWheel {
     this.breadcrumbEl = null;
     this.currentCategoryId = null;
     this.currentItems = [];
+    this.focusedItemIndex = 0;
+    const opener = this.opener;
+    this.opener = null;
+    opener?.focus();
   }
 
   isVisible(): boolean {
-    return !!this.overlay;
+    return this.overlay !== null;
+  }
+
+  private hasNativeSupport(): boolean {
+    return Boolean(window.webkit?.messageHandlers?.promptEditor);
   }
 
   private createOverlay(): void {
     this.overlay = document.createElement('div');
     this.overlay.className = 'snippet-wheel-overlay';
+    this.overlay.setAttribute('role', 'dialog');
+    this.overlay.setAttribute('aria-modal', 'true');
+    this.overlay.setAttribute('aria-label', 'Prompt Snippets');
     this.overlay.innerHTML = `
       <div class="snippet-wheel-container">
-        <div class="snippet-wheel-breadcrumb"></div>
-        <div class="snippet-wheel-close">&times;</div>
-        <div class="snippet-wheel-manage" title="Manage Snippets">⚙️</div>
+        <nav class="snippet-wheel-breadcrumb" aria-label="Snippet category path"></nav>
+        <button type="button" class="snippet-wheel-close" aria-label="Close Prompt Snippets">&times;</button>
+        <button type="button" class="snippet-wheel-manage" aria-label="Manage snippets" title="Manage snippets">&#9881;</button>
         <div class="snippet-wheel">
-          <div class="snippet-wheel-center">
-            <div class="center-icon">🎯</div>
-            <div class="center-text">Select</div>
-          </div>
+          <div class="snippet-wheel-center" aria-live="polite"></div>
         </div>
-        <div class="snippet-wheel-hint">Click category to explore • Click snippet to insert • ⚙️ to manage</div>
+        <div class="snippet-wheel-hint">Use arrow keys to navigate and Enter to select</div>
       </div>
     `;
-
     document.body.appendChild(this.overlay);
+    this.wheelContainer = this.overlay.querySelector('.snippet-wheel');
+    this.centerContent = this.overlay.querySelector('.snippet-wheel-center');
+    this.breadcrumbEl = this.overlay.querySelector('.snippet-wheel-breadcrumb');
 
-    this.wheelContainer = this.overlay.querySelector('.snippet-wheel') as HTMLElement;
-    this.centerContent = this.overlay.querySelector('.snippet-wheel-center') as HTMLElement;
-    this.breadcrumbEl = this.overlay.querySelector('.snippet-wheel-breadcrumb') as HTMLElement;
-
-    // Close button
-    const closeBtn = this.overlay.querySelector('.snippet-wheel-close') as HTMLElement;
-    closeBtn.addEventListener('click', () => this.hide());
-
-    // Manage button
-    const manageBtn = this.overlay.querySelector('.snippet-wheel-manage') as HTMLElement;
-    manageBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
+    this.overlay.querySelector<HTMLButtonElement>('.snippet-wheel-close')?.addEventListener('click', () => this.hide());
+    this.overlay.querySelector<HTMLButtonElement>('.snippet-wheel-manage')?.addEventListener('click', event => {
+      event.stopPropagation();
+      const opener = this.opener;
       this.hide();
-      snippetManagerUI.open();
+      void snippetManagerUI.open(opener);
     });
-
-    // Click outside to close
-    this.overlay.addEventListener('click', (e) => {
-      if (e.target === this.overlay) {
-        this.hide();
-      }
+    this.overlay.addEventListener('click', event => {
+      if (event.target === this.overlay) this.hide();
     });
-
-    // Keyboard navigation
     document.addEventListener('keydown', this.handleKeyDown);
   }
 
-  private handleKeyDown(e: KeyboardEvent): void {
-    if (e.key === 'Escape') {
-      if (this.currentCategoryId) {
-        this.goBack();
-      } else {
-        this.hide();
-      }
+  private handleKeyDown = (event: KeyboardEvent): void => {
+    if (!this.overlay) return;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      event.preventDefault();
+      this.focusItem(this.focusedItemIndex + 1);
+      return;
     }
-  }
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      this.focusItem(this.focusedItemIndex - 1);
+      return;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      const item = this.currentItems[this.focusedItemIndex];
+      if (item && document.activeElement?.classList.contains('wheel-item')) {
+        event.preventDefault();
+        this.handleItemClick(item);
+      }
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      if (this.currentCategoryId) this.goBack();
+      else this.hide();
+    }
+  };
 
   private renderRoot(): void {
     this.currentCategoryId = null;
-    const categories = snippetManager.getRootCategories();
-    this.currentItems = categories.map(cat => ({
-      id: cat.id,
-      name: cat.name,
-      icon: cat.icon,
-      description: cat.description,
-      type: 'category' as const,
-      data: cat
+    this.currentItems = snippetManager.getRootCategories().map(category => ({
+      id: category.id,
+      name: category.name,
+      icon: category.icon,
+      description: category.description || '',
+      type: 'category',
+      data: category,
     }));
     this.renderWheel();
     this.updateBreadcrumb();
@@ -204,137 +158,122 @@ class SnippetWheel {
   private renderCategory(categoryId: string): void {
     const category = snippetManager.getCategory(categoryId);
     if (!category) return;
-
     this.currentCategoryId = categoryId;
-    this.currentItems = [];
-
-    // Add back button
-    this.currentItems.push({
-      id: 'back',
-      name: 'Back',
-      icon: '←',
-      description: 'Go back',
-      type: 'back'
-    });
-
-    // Add subcategories
-    const subcategories = snippetManager.getSubcategories(categoryId);
-    subcategories.forEach(sub => {
-      this.currentItems.push({
-        id: sub.id,
-        name: sub.name,
-        icon: sub.icon,
-        description: sub.description,
-        type: 'category',
-        data: sub
-      });
-    });
-
-    // Add snippets
-    const snippets = snippetManager.getSnippets(categoryId);
-    snippets.forEach(snippet => {
-      this.currentItems.push({
-        id: snippet.id,
-        name: snippet.name,
-        icon: '📝',
-        description: snippet.description,
-        type: 'snippet',
-        data: snippet
-      });
-    });
-
+    this.currentItems = [{ id: 'back', name: 'Back', icon: '\u2190', description: 'Go back', type: 'back' }];
+    snippetManager.getSubcategories(categoryId).forEach(subcategory => this.currentItems.push({
+      id: subcategory.id,
+      name: subcategory.name,
+      icon: subcategory.icon,
+      description: subcategory.description || '',
+      type: 'category',
+      data: subcategory,
+    }));
+    snippetManager.getSnippets(categoryId).forEach(snippet => this.currentItems.push({
+      id: snippet.id,
+      name: snippet.name,
+      icon: '\u{1F4DD}',
+      description: snippet.description,
+      type: 'snippet',
+      data: snippet,
+    }));
     this.renderWheel();
     this.updateBreadcrumb();
   }
 
   private renderWheel(): void {
-    if (!this.wheelContainer || !this.centerContent) return;
-
-    // Clear existing items (except center)
-    const existingItems = this.wheelContainer.querySelectorAll('.wheel-item');
-    existingItems.forEach(item => item.remove());
-
-    const itemCount = this.currentItems.length;
-    if (itemCount === 0) {
-      this.centerContent.innerHTML = `
-        <div class="center-icon">📭</div>
-        <div class="center-text">Empty</div>
-      `;
+    if (!this.wheelContainer) return;
+    this.wheelContainer.querySelectorAll('.wheel-item').forEach(item => item.remove());
+    if (this.currentItems.length === 0) {
+      this.renderCenter('\u{1F4ED}', 'Empty', 'No items in this category');
+      this.overlay?.querySelector<HTMLButtonElement>('.snippet-wheel-manage')?.focus();
       return;
     }
 
-    // Calculate positions
-    const angleStep = (2 * Math.PI) / itemCount;
-    const startAngle = -Math.PI / 2; // Start from top
-
+    const angleStep = (2 * Math.PI) / this.currentItems.length;
     this.currentItems.forEach((item, index) => {
-      const angle = startAngle + index * angleStep;
+      const angle = -Math.PI / 2 + index * angleStep;
       const x = Math.cos(angle) * this.WHEEL_RADIUS;
       const y = Math.sin(angle) * this.WHEEL_RADIUS;
-
-      const itemEl = document.createElement('div');
-      itemEl.className = `wheel-item ${item.type}`;
-      itemEl.style.cssText = `
-        transform: translate(${x}px, ${y}px);
-        animation-delay: ${index * 0.05}s;
-      `;
-      itemEl.innerHTML = `
-        <div class="wheel-item-icon">${item.icon}</div>
-        <div class="wheel-item-name">${item.name}</div>
-        <div class="wheel-item-desc">${item.description}</div>
-      `;
-
-      itemEl.addEventListener('click', () => this.handleItemClick(item));
-      
-      // Hover effect for center
-      itemEl.addEventListener('mouseenter', () => this.updateCenterPreview(item));
-      itemEl.addEventListener('mouseleave', () => this.resetCenterPreview());
-
-      this.wheelContainer!.appendChild(itemEl);
+      const button = this.createWheelButton(item, index);
+      button.style.left = `calc(50% + ${x}px)`;
+      button.style.top = `calc(50% + ${y}px)`;
+      button.style.animationDelay = `${index * 0.05}s`;
+      this.wheelContainer?.appendChild(button);
     });
-
-    // Update center text
     this.resetCenterPreview();
+    this.focusItem(0);
+  }
+
+  private createWheelButton(item: WheelItem, index: number): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `wheel-item ${item.type}`;
+    button.dataset.index = String(index);
+    button.setAttribute('aria-label', `${item.type === 'snippet' ? 'Insert' : 'Open'} ${item.name}`);
+
+    const icon = document.createElement('span');
+    icon.className = 'wheel-item-icon';
+    icon.textContent = item.icon;
+    const name = document.createElement('span');
+    name.className = 'wheel-item-name';
+    name.textContent = item.name;
+    const description = document.createElement('span');
+    description.className = 'wheel-item-desc';
+    description.textContent = item.description;
+    button.append(icon, name, description);
+
+    button.addEventListener('click', () => this.handleItemClick(item));
+    button.addEventListener('mouseenter', () => this.updateCenterPreview(item));
+    button.addEventListener('focus', () => {
+      this.focusedItemIndex = index;
+      this.updateCenterPreview(item);
+    });
+    button.addEventListener('mouseleave', () => {
+      if (document.activeElement !== button) this.resetCenterPreview();
+    });
+    return button;
+  }
+
+  private focusItem(index: number): void {
+    const items = Array.from(this.wheelContainer?.querySelectorAll<HTMLButtonElement>('.wheel-item') || []);
+    if (items.length === 0) return;
+    this.focusedItemIndex = (index + items.length) % items.length;
+    items.forEach((item, itemIndex) => item.tabIndex = itemIndex === this.focusedItemIndex ? 0 : -1);
+    items[this.focusedItemIndex].focus();
   }
 
   private updateCenterPreview(item: WheelItem): void {
-    if (!this.centerContent) return;
-    
-    let content = '';
     if (item.type === 'snippet' && item.data) {
       const snippet = item.data as Snippet;
-      content = `
-        <div class="center-icon">${item.icon}</div>
-        <div class="center-text">${item.name}</div>
-        <div class="center-desc">${snippet.content.slice(0, 60)}${snippet.content.length > 60 ? '...' : ''}</div>
-      `;
-    } else {
-      content = `
-        <div class="center-icon">${item.icon}</div>
-        <div class="center-text">${item.name}</div>
-        <div class="center-desc">${item.description}</div>
-      `;
+      const preview = `${snippet.content.slice(0, 60)}${snippet.content.length > 60 ? '...' : ''}`;
+      this.renderCenter(item.icon, item.name, preview);
+      return;
     }
-    this.centerContent.innerHTML = content;
+    this.renderCenter(item.icon, item.name, item.description);
   }
 
   private resetCenterPreview(): void {
-    if (!this.centerContent) return;
-    
     if (this.currentCategoryId) {
       const category = snippetManager.getCategory(this.currentCategoryId);
-      this.centerContent.innerHTML = `
-        <div class="center-icon">${category?.icon || '📂'}</div>
-        <div class="center-text">${category?.name || 'Select'}</div>
-        <div class="center-desc">${category?.description || 'Choose an item'}</div>
-      `;
+      this.renderCenter(category?.icon || '\u{1F4C2}', category?.name || 'Select', category?.description || 'Choose an item');
     } else {
-      this.centerContent.innerHTML = `
-        <div class="center-icon">🎯</div>
-        <div class="center-text">Prompt Snippets</div>
-        <div class="center-desc">Select a category to start</div>
-      `;
+      this.renderCenter('\u{1F3AF}', 'Prompt Snippets', 'Select a category to start');
     }
+  }
+
+  private renderCenter(iconText: string, titleText: string, descriptionText: string): void {
+    if (!this.centerContent) return;
+    this.centerContent.replaceChildren();
+    const icon = document.createElement('div');
+    icon.className = 'center-icon';
+    icon.textContent = iconText;
+    const title = document.createElement('div');
+    title.className = 'center-text';
+    title.textContent = titleText;
+    const description = document.createElement('div');
+    description.className = 'center-desc';
+    description.textContent = descriptionText;
+    this.centerContent.append(icon, title, description);
   }
 
   private handleItemClick(item: WheelItem): void {
@@ -342,91 +281,73 @@ class SnippetWheel {
       this.goBack();
     } else if (item.type === 'category' && item.data) {
       const category = item.data as Category;
-      // If category has subcategories or snippets, navigate into it
       if (snippetManager.hasSubcategories(category.id) || snippetManager.hasSnippets(category.id)) {
         this.renderCategory(category.id);
       }
     } else if (item.type === 'snippet' && item.data) {
-      const snippet = item.data as Snippet;
-      this.insertSnippet(snippet);
+      this.insertSnippet(item.data as Snippet);
     }
   }
 
   private goBack(): void {
     if (!this.currentCategoryId) return;
-    
     const path = snippetManager.getBreadcrumbPath(this.currentCategoryId);
-    if (path.length <= 1) {
-      this.renderRoot();
-    } else {
-      // Go to parent
-      const parent = path[path.length - 2];
-      if (parent) {
-        this.renderCategory(parent.id);
-      } else {
-        this.renderRoot();
-      }
-    }
+    if (path.length <= 1) this.renderRoot();
+    else this.renderCategory(path[path.length - 2].id);
   }
 
   private updateBreadcrumb(): void {
     if (!this.breadcrumbEl) return;
-    
-    if (!this.currentCategoryId) {
-      this.breadcrumbEl.innerHTML = '<span class="bc-root">Categories</span>';
-      return;
-    }
+    this.breadcrumbEl.replaceChildren();
+    const root = this.createBreadcrumbButton('Categories', null);
+    this.breadcrumbEl.appendChild(root);
+    if (!this.currentCategoryId) return;
 
     const path = snippetManager.getBreadcrumbPath(this.currentCategoryId);
-    let html = '<span class="bc-root" data-id="">Categories</span>';
-    
-    path.forEach((cat, index) => {
-      html += ' <span class="bc-separator">›</span> ';
+    path.forEach((category, index) => {
+      const separator = document.createElement('span');
+      separator.className = 'bc-separator';
+      separator.textContent = '\u203A';
+      this.breadcrumbEl?.appendChild(separator);
       if (index === path.length - 1) {
-        html += `<span class="bc-current">${cat.icon} ${cat.name}</span>`;
+        const current = document.createElement('span');
+        current.className = 'bc-current';
+        current.textContent = `${category.icon} ${category.name}`;
+        this.breadcrumbEl?.appendChild(current);
       } else {
-        html += `<span class="bc-item" data-id="${cat.id}">${cat.icon} ${cat.name}</span>`;
+        this.breadcrumbEl?.appendChild(this.createBreadcrumbButton(`${category.icon} ${category.name}`, category.id));
       }
     });
+  }
 
-    this.breadcrumbEl.innerHTML = html;
-
-    // Add click handlers
-    this.breadcrumbEl.querySelectorAll('.bc-root, .bc-item').forEach(el => {
-      el.addEventListener('click', (e) => {
-        const id = (e.currentTarget as HTMLElement).dataset.id;
-        if (!id) {
-          this.renderRoot();
-        } else {
-          this.renderCategory(id);
-        }
-      });
-    });
+  private createBreadcrumbButton(label: string, categoryId: string | null): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = categoryId ? 'bc-item' : 'bc-root';
+    button.textContent = label;
+    button.addEventListener('click', () => categoryId ? this.renderCategory(categoryId) : this.renderRoot());
+    return button;
   }
 
   private insertSnippet(snippet: Snippet): void {
     if (this.onSelectSnippet) {
       this.onSelectSnippet(snippet);
     } else if (this.editorView) {
-      // Insert at cursor position
       const { from } = this.editorView.state.selection.main;
-      this.editorView.dispatch({
-        changes: { from, insert: snippet.content }
-      });
+      this.editorView.dispatch({ changes: { from, insert: snippet.content } });
     }
     this.hide();
   }
 }
 
-// Export singleton instance
 export const snippetWheel = new SnippetWheel();
 
-// Export function to show the wheel
-export function showSnippetWheel(editorView?: EditorView, onSelectSnippet?: (snippet: Snippet) => void): void {
-  if (editorView) {
-    snippetWheel.init(editorView, onSelectSnippet);
-  }
-  snippetWheel.show();
+export async function showSnippetWheel(
+  editorView?: EditorView,
+  onSelectSnippet?: (snippet: Snippet) => void,
+  opener?: HTMLElement | null,
+): Promise<void> {
+  await snippetWheel.show(editorView, onSelectSnippet, opener);
 }
 
 export function hideSnippetWheel(): void {
