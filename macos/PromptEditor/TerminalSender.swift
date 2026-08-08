@@ -92,6 +92,30 @@ public enum CLITarget: String {
 /// Sends prompt content to terminals with strategy-based dispatch.
 public enum TerminalSender {
 
+    /// Paste content into the previously focused application without submitting it.
+    public static func pasteOnly(content: String, to app: NSRunningApplication?, completion: @escaping (Bool) -> Void) {
+        guard app != nil else {
+            completion(false)
+            return
+        }
+
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        guard pasteboard.setString(content, forType: .string) else {
+            completion(false)
+            return
+        }
+
+        activateApp(app)
+        DispatchQueue.main.asyncAfter(deadline: .now() + Helpers.WindowConfig.activateDelay + 0.1) {
+            if let targetApp = app, !targetApp.isActive {
+                targetApp.activate(options: .activateIgnoringOtherApps)
+            }
+            let success = simulateKeystroke("v", withCommand: true)
+            completion(success)
+        }
+    }
+
     /// Send content to the previously active application.
     /// Detects terminal type and tmux, then dispatches to the optimal strategy.
     public static func send(content: String, to app: NSRunningApplication?, completion: (() -> Void)? = nil) {
@@ -250,22 +274,26 @@ public enum TerminalSender {
         app?.activate(options: .activateIgnoringOtherApps)
     }
 
-    private static func runAppleScript(_ source: String) {
+    @discardableResult
+    private static func runAppleScript(_ source: String) -> Bool {
         let script = NSAppleScript(source: source)
         var error: NSDictionary?
         script?.executeAndReturnError(&error)
         if let error = error {
             NSLog("TerminalSender AppleScript error: \(error)")
+            return false
         }
+        return script != nil
     }
 
-    private static func simulateKeystroke(_ key: String, withCommand: Bool) {
+    @discardableResult
+    private static func simulateKeystroke(_ key: String, withCommand: Bool) -> Bool {
         let modifier = withCommand ? "using command down" : ""
         let source = """
             tell application "System Events"
                 keystroke "\(key)" \(modifier)
             end tell
         """
-        runAppleScript(source)
+        return runAppleScript(source)
     }
 }

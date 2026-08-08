@@ -179,6 +179,33 @@ describe('Bridge', () => {
 
       delete (window as any).webkit;
     });
+
+    it('pastes content to the previous native target when available', async () => {
+      const mockPostMessage = vi.fn();
+      (window as any).webkit = {
+        messageHandlers: {
+          promptEditor: { postMessage: mockPostMessage },
+        },
+      };
+
+      bridge.setContent('paste to previous target');
+      const resultPromise = bridge.pasteToPrevious();
+      const request = mockPostMessage.mock.calls[0][0];
+
+      expect(request).toEqual({
+        action: 'pasteToPrevious',
+        content: 'paste to previous target',
+        callback: expect.any(String),
+      });
+
+      (window as any).promptEditorNativeResult(request.callback, true, 'Pasted to previous app');
+      await expect(resultPromise).resolves.toEqual({
+        success: true,
+        message: 'Pasted to previous app',
+      });
+
+      delete (window as any).webkit;
+    });
   });
 });
 

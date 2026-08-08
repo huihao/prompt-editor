@@ -2,7 +2,7 @@ import Cocoa
 import WebKit
 import PromptEditorCore
 
-public class MainWindow: NSObject, WKScriptMessageHandler, NSWindowDelegate {
+public class MainWindow: NSObject, WKScriptMessageHandler, NSWindowDelegate, WKNavigationDelegate {
     public let window: NSWindow
     public let webView: WKWebView
     public var isPipeMode = false
@@ -57,6 +57,7 @@ public class MainWindow: NSObject, WKScriptMessageHandler, NSWindowDelegate {
 
         // Set window delegate for focus management
         window.delegate = self
+        webView.navigationDelegate = self
 
         // Add message handler for JS bridge
         userContentController.add(self, name: "promptEditor")
@@ -174,6 +175,15 @@ public class MainWindow: NSObject, WKScriptMessageHandler, NSWindowDelegate {
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
             pasteboard.setString(content, forType: .string)
+        case .pasteToPrevious(let content, let callback):
+            guard let delegate = NSApp.delegate as? AppDelegate else { return }
+            delegate.pasteToPrevious(content, callback: callback)
+        case .openAccessibilitySettings:
+            guard let delegate = NSApp.delegate as? AppDelegate else { return }
+            delegate.openAccessibilitySettings()
+        case .restartApp:
+            guard let delegate = NSApp.delegate as? AppDelegate else { return }
+            delegate.restartApp()
         case .hide:
             guard let delegate = NSApp.delegate as? AppDelegate else { return }
             delegate.hideWindow()
@@ -209,6 +219,25 @@ public class MainWindow: NSObject, WKScriptMessageHandler, NSWindowDelegate {
         case .unknown:
             break
         }
+    }
+
+    public func sendNativeResult(requestId: String, success: Bool, message: String) {
+        webView.evaluateJavaScript(Helpers.buildNativeResultJS(
+            requestId: requestId,
+            success: success,
+            message: message
+        ))
+    }
+
+    public func updateAccessibilityPermission(trusted: Bool, requiresRestart: Bool) {
+        webView.evaluateJavaScript(Helpers.buildAccessibilityPermissionStatusJS(
+            trusted: trusted,
+            requiresRestart: requiresRestart
+        ))
+    }
+
+    public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        (NSApp.delegate as? AppDelegate)?.notifyAccessibilityPermission(requiresRestart: false)
     }
     
     // MARK: - File Reference Handlers

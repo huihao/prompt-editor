@@ -1,12 +1,15 @@
 import Cocoa
 import Carbon
 import WebKit
+import ApplicationServices
 
 public class AppDelegate: NSObject, NSApplicationDelegate {
     public var statusBarItem: StatusBarItem!
     public var mainWindow: MainWindow!
     public var hotKeyRef: EventHotKeyRef?
     public var previousApp: NSRunningApplication?
+    private var accessibilitySettingsOpened = false
+    private var accessibilityConsentPrompted = false
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
         // Check for --pipe mode
@@ -32,6 +35,16 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Show window on first launch
         toggleWindow()
+
+        // Give the WebView time to load, then guide first-time users to the required permission.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+            guard let self else { return }
+            guard Helpers.shouldAutoOpenAccessibilitySettings(
+                isTrusted: AXIsProcessTrusted(),
+                hasOpened: self.accessibilitySettingsOpened
+            ) else { return }
+            self.requestAccessibilityConsent()
+        }
     }
     
     private func setupMainMenu() {
@@ -65,6 +78,11 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
 
     public func applicationWillTerminate(_ notification: Notification) {
         unregisterGlobalHotkey()
+    }
+
+    public func applicationDidBecomeActive(_ notification: Notification) {
+        guard accessibilitySettingsOpened else { return }
+        notifyAccessibilityPermission(requiresRestart: true)
     }
 
     // MARK: - Global Hotkey
@@ -123,7 +141,10 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
 
     public func showWindow() {
         // Remember the previously focused app
-        previousApp = NSWorkspace.shared.frontmostApplication
+        if let frontmostApp = NSWorkspace.shared.frontmostApplication,
+           frontmostApp != NSRunningApplication.current {
+            previousApp = frontmostApp
+        }
 
         mainWindow.window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -198,6 +219,73 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
             
             NSLog("PromptEditor: Sending to previous app: \(targetApp.bundleIdentifier ?? "unknown")")
             TerminalSender.send(content: content, to: targetApp, target: cliTarget)
+        }
+    }
+
+    public func pasteToPrevious(_ content: String, callback: String? = nil) {
+        guard let targetApp = previousApp else {
+            NSLog("PromptEditor: No previous app available for paste")
+            if let callback {
+                mainWindow.sendNativeResult(requestId: callback, success: false, message: "没有可用的上次位置")
+            }
+            return
+        }
+
+        hideWindow()
+        DispatchQueue.main.asyncAfter(deadline: .now() + Helpers.WindowConfig.pasteDelay) {
+            TerminalSender.pasteOnly(content: content, to: targetApp) { success in
+                guard let callback else { return }
+                let message = success
+                    ? "已粘贴到上次位置"
+                    : "粘贴失败，请检查 macOS 辅助功能权限"
+                self.mainWindow.sendNativeResult(requestId: callback, success: success, message: message)
+            }
+        }
+    }
+
+    public func notifyAccessibilityPermission(requiresRestart: Bool) {
+        guard mainWindow != nil else { return }
+        mainWindow.updateAccessibilityPermission(
+            trusted: AXIsProcessTrusted(),
+            requiresRestart: requiresRestart
+        )
+    }
+
+    public func openAccessibilitySettings() {
+        accessibilitySettingsOpened = true
+        let settingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
+        NSWorkspace.shared.open(settingsURL)
+    }
+
+    private func requestAccessibilityConsent() {
+        guard Helpers.shouldRequestAccessibilityConsent(
+            isTrusted: AXIsProcessTrusted(),
+            consentPrompted: accessibilityConsentPrompted
+        ) else { return }
+
+        accessibilityConsentPrompted = true
+        let alert = NSAlert()
+        alert.messageText = "Accessibility permission required"
+        alert.informativeText = "Prompt Editor needs Accessibility permission to paste prompts into the previously focused app. Open macOS Security Settings now?"
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Open Security Settings")
+        alert.addButton(withTitle: "Not Now")
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            openAccessibilitySettings()
+        }
+    }
+
+    public func restartApp() {
+        guard let appURL = Bundle.main.bundleURL as URL? else { return }
+        NSWorkspace.shared.openApplication(at: appURL, configuration: NSWorkspace.OpenConfiguration()) { _, error in
+            if let error {
+                NSLog("PromptEditor: Failed to restart app: \(error.localizedDescription)")
+                return
+            }
+            DispatchQueue.main.async {
+                NSApp.terminate(nil)
+            }
         }
     }
     

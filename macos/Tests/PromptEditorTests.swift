@@ -103,6 +103,36 @@ final class HelpersTests: XCTestCase {
         XCTAssertEqual(action, .hide)
     }
 
+    func testParseBridgeMessage_pasteToPrevious() {
+        let body: [String: Any] = ["action": "pasteToPrevious", "content": "paste here", "callback": "paste-1"]
+        let action = Helpers.parseBridgeMessage(body)
+        XCTAssertEqual(action, .pasteToPrevious(content: "paste here", callback: "paste-1"))
+    }
+
+    func testParseBridgeMessage_openAccessibilitySettings() {
+        let body: [String: Any] = ["action": "openAccessibilitySettings"]
+        let action = Helpers.parseBridgeMessage(body)
+        XCTAssertEqual(action, .openAccessibilitySettings)
+    }
+
+    func testParseBridgeMessage_restartApp() {
+        let body: [String: Any] = ["action": "restartApp"]
+        let action = Helpers.parseBridgeMessage(body)
+        XCTAssertEqual(action, .restartApp)
+    }
+
+    func testShouldAutoOpenAccessibilitySettings_onlyWhenUntrustedAndNotOpened() {
+        XCTAssertTrue(Helpers.shouldAutoOpenAccessibilitySettings(isTrusted: false, hasOpened: false))
+        XCTAssertFalse(Helpers.shouldAutoOpenAccessibilitySettings(isTrusted: true, hasOpened: false))
+        XCTAssertFalse(Helpers.shouldAutoOpenAccessibilitySettings(isTrusted: false, hasOpened: true))
+    }
+
+    func testShouldRequestAccessibilityConsent_onlyOnceForUntrustedApp() {
+        XCTAssertTrue(Helpers.shouldRequestAccessibilityConsent(isTrusted: false, consentPrompted: false))
+        XCTAssertFalse(Helpers.shouldRequestAccessibilityConsent(isTrusted: true, consentPrompted: false))
+        XCTAssertFalse(Helpers.shouldRequestAccessibilityConsent(isTrusted: false, consentPrompted: true))
+    }
+
     func testParseBridgeMessage_showHistory() {
         let body: [String: Any] = ["action": "showHistory"]
         let action = Helpers.parseBridgeMessage(body)

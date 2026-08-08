@@ -37,8 +37,11 @@ import { enhancePrompt } from './ai-enhance';
 import { showAISettingsModal } from './ai-config';
 import { historyStore } from './history-store';
 import { initPromptMemoryUI } from './prompt-memory-ui';
+import { SEND_FEATURE_ENABLED, hideSendFeatureUI } from './send-feature';
 
 const STORAGE_KEY = 'promptEditor:draft';
+
+hideSendFeatureUI(document);
 
 void historyStore.init().then(() => {
   bridge.renderHistory();
@@ -169,26 +172,28 @@ const state = EditorState.create({
       ...defaultKeymap,
       ...historyKeymap,
       ...filePickerKeymap,
-      {
-        key: 'Mod-Enter',
-        run: () => {
-          const content = bridge.getContent();
-          if (!content.trim()) return true;
-          showConfirmDialog(content);
-          return true;
+      ...(SEND_FEATURE_ENABLED ? [
+        {
+          key: 'Mod-Enter',
+          run: () => {
+            const content = bridge.getContent();
+            if (!content.trim()) return true;
+            showConfirmDialog(content);
+            return true;
+          },
         },
-      },
-      {
-        key: 'Mod-Shift-Enter',
-        run: () => {
-          // Quick send to default target without confirmation
-          const content = bridge.getContent();
-          if (!content.trim()) return true;
-          bridge.send().catch((e: Error) => console.error('Send failed:', e));
-          resetHistoryNavigation();
-          return true;
+        {
+          key: 'Mod-Shift-Enter',
+          run: () => {
+            // Quick send to default target without confirmation
+            const content = bridge.getContent();
+            if (!content.trim()) return true;
+            bridge.send().catch((e: Error) => console.error('Send failed:', e));
+            resetHistoryNavigation();
+            return true;
+          },
         },
-      },
+      ] : []),
       {
         key: 'Mod-Shift-KeyC',
         run: () => {
@@ -199,54 +204,56 @@ const state = EditorState.create({
           return true;
         },
       },
-      {
-        key: 'Mod-Shift-1',
-        run: () => {
-          // Send to Claude
-          const content = bridge.getContent();
-          if (!content.trim()) return true;
-          bridge.send('claude').catch((e: Error) => console.error('Send failed:', e));
-          resetHistoryNavigation();
-          showToast('Sent to Claude Code');
-          return true;
+      ...(SEND_FEATURE_ENABLED ? [
+        {
+          key: 'Mod-Shift-1',
+          run: () => {
+            // Send to Claude
+            const content = bridge.getContent();
+            if (!content.trim()) return true;
+            bridge.send('claude').catch((e: Error) => console.error('Send failed:', e));
+            resetHistoryNavigation();
+            showToast('Sent to Claude Code');
+            return true;
+          },
         },
-      },
-      {
-        key: 'Mod-Shift-2',
-        run: () => {
-          // Send to Codex
-          const content = bridge.getContent();
-          if (!content.trim()) return true;
-          bridge.send('codex').catch((e: Error) => console.error('Send failed:', e));
-          resetHistoryNavigation();
-          showToast('Sent to Codex CLI');
-          return true;
+        {
+          key: 'Mod-Shift-2',
+          run: () => {
+            // Send to Codex
+            const content = bridge.getContent();
+            if (!content.trim()) return true;
+            bridge.send('codex').catch((e: Error) => console.error('Send failed:', e));
+            resetHistoryNavigation();
+            showToast('Sent to Codex CLI');
+            return true;
+          },
         },
-      },
-      {
-        key: 'Mod-Shift-3',
-        run: () => {
-          // Send to Kimi
-          const content = bridge.getContent();
-          if (!content.trim()) return true;
-          bridge.send('kimi').catch((e: Error) => console.error('Send failed:', e));
-          resetHistoryNavigation();
-          showToast('Sent to Kimi CLI');
-          return true;
+        {
+          key: 'Mod-Shift-3',
+          run: () => {
+            // Send to Kimi
+            const content = bridge.getContent();
+            if (!content.trim()) return true;
+            bridge.send('kimi').catch((e: Error) => console.error('Send failed:', e));
+            resetHistoryNavigation();
+            showToast('Sent to Kimi CLI');
+            return true;
+          },
         },
-      },
-      {
-        key: 'Mod-Shift-4',
-        run: () => {
-          // Send to Cursor
-          const content = bridge.getContent();
-          if (!content.trim()) return true;
-          bridge.send('cursor').catch((e: Error) => console.error('Send failed:', e));
-          resetHistoryNavigation();
-          showToast('Sent to Cursor');
-          return true;
+        {
+          key: 'Mod-Shift-4',
+          run: () => {
+            // Send to Cursor
+            const content = bridge.getContent();
+            if (!content.trim()) return true;
+            bridge.send('cursor').catch((e: Error) => console.error('Send failed:', e));
+            resetHistoryNavigation();
+            showToast('Sent to Cursor');
+            return true;
+          },
         },
-      },
+      ] : []),
       {
         key: 'Escape',
         run: () => {
@@ -351,6 +358,28 @@ const view = new EditorView({
 
 // Expose to bridge
 bridge.init(view);
+
+const accessibilityBanner = document.getElementById('accessibility-permission-banner');
+const accessibilityMessage = document.getElementById('accessibility-permission-message');
+const openAccessibilitySettingsButton = document.getElementById('btn-open-accessibility-settings');
+const restartAfterAccessibilityButton = document.getElementById('btn-restart-after-accessibility');
+
+(window as any).promptEditorPermissionStatus = (trusted: boolean, requiresRestart: boolean) => {
+  if (!accessibilityBanner || !accessibilityMessage) return;
+  accessibilityBanner.hidden = trusted && !requiresRestart;
+  if (trusted && requiresRestart) {
+    accessibilityMessage.textContent = 'Accessibility permission is enabled. Restart Prompt Editor to apply it.';
+    if (restartAfterAccessibilityButton) restartAfterAccessibilityButton.hidden = false;
+    if (openAccessibilitySettingsButton) openAccessibilitySettingsButton.hidden = true;
+  } else if (!trusted) {
+    accessibilityMessage.textContent = 'Accessibility permission is required to paste into the previous app.';
+    if (restartAfterAccessibilityButton) restartAfterAccessibilityButton.hidden = true;
+    if (openAccessibilitySettingsButton) openAccessibilitySettingsButton.hidden = false;
+  }
+};
+
+openAccessibilitySettingsButton?.addEventListener('click', () => bridge.openAccessibilitySettings());
+restartAfterAccessibilityButton?.addEventListener('click', () => bridge.restartApp());
 
 // Toast notification
 function showToast(message: string) {
@@ -506,6 +535,10 @@ document.getElementById('btn-send')!.addEventListener('click', () => {
 document.getElementById('btn-copy')!.addEventListener('click', async () => {
   const success = await bridge.copy();
   showToast(success ? 'Copied to clipboard!' : 'Failed to copy');
+});
+document.getElementById('btn-paste-previous')?.addEventListener('click', async () => {
+  const result = await bridge.pasteToPrevious();
+  showToast(result.message);
 });
 document.getElementById('btn-clear')!.addEventListener('click', () => {
   bridge.clear();

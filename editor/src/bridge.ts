@@ -14,6 +14,7 @@ import { historyStore, HistoryItem } from './history-store';
 
 declare global {
   interface Window {
+    promptEditorNativeResult?: (requestId: string, success: boolean, message: string) => void;
     webkit?: {
       messageHandlers?: {
         promptEditor?: {
@@ -83,6 +84,9 @@ interface NativeBridge {
   sendContent: (content: string, target?: SendTarget) => Promise<void>;
   copy: () => Promise<boolean>;
   copyToClipboard: (content: string) => Promise<boolean>;
+  pasteToPrevious: () => Promise<{ success: boolean; message: string }>;
+  openAccessibilitySettings: () => void;
+  restartApp: () => void;
   hide: () => void;
   clear: () => void;
   showHistory: () => void;
@@ -138,6 +142,20 @@ interface NativeBridge {
 }
 
 let editorView: EditorView | null = null;
+let nativeRequestSequence = 0;
+const nativeResultHandlers = new Map<string, (result: { success: boolean; message: string }) => void>();
+
+function nextNativeRequestId(): string {
+  nativeRequestSequence += 1;
+  return `native-${Date.now()}-${nativeRequestSequence}`;
+}
+
+function resolveNativeResult(requestId: string, success: boolean, message: string): void {
+  const resolve = nativeResultHandlers.get(requestId);
+  if (!resolve) return;
+  nativeResultHandlers.delete(requestId);
+  resolve({ success, message });
+}
 
 function postToNative(action: string, data?: Record<string, unknown>) {
   const message = { action, ...data };
@@ -159,6 +177,7 @@ export const bridge: NativeBridge = {
       setContent: (text: string) => bridge.setContent(text),
       focus: () => view.focus(),
     };
+    window.promptEditorNativeResult = resolveNativeResult;
     
     // Subscribe to terminal context updates and forward to bridge callback
     terminalContext.subscribe((ctx) => {
@@ -297,6 +316,35 @@ export const bridge: NativeBridge = {
       console.error('Failed to copy:', err);
       return false;
     }
+  },
+
+  async pasteToPrevious(): Promise<{ success: boolean; message: string }> {
+    const content = bridge.getContent();
+    if (!content.trim()) return { success: false, message: 'Nothing to paste' };
+
+    const resolvedContent = prepareContentForSend(content);
+    if (!window.webkit?.messageHandlers?.promptEditor) {
+      return { success: false, message: 'Paste to last position is only available on macOS' };
+    }
+
+    const requestId = nextNativeRequestId();
+    return new Promise((resolve) => {
+      nativeResultHandlers.set(requestId, resolve);
+      postToNative('pasteToPrevious', { content: resolvedContent, callback: requestId });
+      window.setTimeout(() => {
+        if (!nativeResultHandlers.has(requestId)) return;
+        nativeResultHandlers.delete(requestId);
+        resolve({ success: false, message: 'No response from macOS paste service' });
+      }, 5000);
+    });
+  },
+
+  openAccessibilitySettings() {
+    postToNative('openAccessibilitySettings');
+  },
+
+  restartApp() {
+    postToNative('restartApp');
   },
 
   getHistory(): HistoryItem[] {

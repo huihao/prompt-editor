@@ -17,6 +17,9 @@ public enum Helpers {
     public enum BridgeAction: Equatable {
         case send(content: String, target: String, agentId: String?, pid: Int32?, terminalApp: String?)
         case copy(content: String)
+        case pasteToPrevious(content: String, callback: String?)
+        case openAccessibilitySettings
+        case restartApp
         case hide
         case showHistory
         case scanDirectory(path: String, callback: String)
@@ -51,6 +54,13 @@ public enum Helpers {
         case "copy":
             guard let content = dict["content"] as? String else { return nil }
             return .copy(content: content)
+        case "pasteToPrevious":
+            guard let content = dict["content"] as? String else { return nil }
+            return .pasteToPrevious(content: content, callback: dict["callback"] as? String)
+        case "openAccessibilitySettings":
+            return .openAccessibilitySettings
+        case "restartApp":
+            return .restartApp
         case "hide":
             return .hide
         case "showHistory":
@@ -114,6 +124,27 @@ public enum Helpers {
     public static func buildSetContentJS(_ text: String) -> String {
         let escaped = escapeForJS(text)
         return "window.promptEditor?.setContent('\(escaped)')"
+    }
+
+    /// Build a callback invocation for an asynchronous native bridge result.
+    public static func buildNativeResultJS(requestId: String, success: Bool, message: String) -> String {
+        let values: [Any] = [requestId, success, message]
+        let json = (try? JSONSerialization.data(withJSONObject: values))
+            .flatMap { String(data: $0, encoding: .utf8) } ?? "[\"\",false,\"Unknown native result\"]"
+        return "window.promptEditorNativeResult?.apply(null, \(json))"
+    }
+
+    /// Build the JavaScript callback used to update the macOS permission banner.
+    public static func buildAccessibilityPermissionStatusJS(trusted: Bool, requiresRestart: Bool) -> String {
+        "window.promptEditorPermissionStatus?.(\(trusted), \(requiresRestart))"
+    }
+
+    public static func shouldAutoOpenAccessibilitySettings(isTrusted: Bool, hasOpened: Bool) -> Bool {
+        !isTrusted && !hasOpened
+    }
+
+    public static func shouldRequestAccessibilityConsent(isTrusted: Bool, consentPrompted: Bool) -> Bool {
+        !isTrusted && !consentPrompted
     }
 
     /// Escape a string for safe injection into an AppleScript double-quoted string literal.
