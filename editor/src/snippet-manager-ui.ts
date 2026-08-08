@@ -1,1024 +1,688 @@
-// Snippet Manager UI - Refactored for reliability
-// 完全重构版本 - 解决保存问题
-
-import { snippetManager, Snippet, Category } from './snippet-manager';
+import { Category, Snippet, snippetManager } from './snippet-manager';
+import { escapeHTML } from './snippet-rendering';
 import logger from './logger';
+
+type ManagerView = 'list' | 'edit-snippet' | 'edit-category' | 'logs';
+type MessageTone = 'error' | 'success';
 
 export class SnippetManagerUI {
   private overlay: HTMLElement | null = null;
   private container: HTMLElement | null = null;
-  private currentView: 'list' | 'edit-snippet' | 'edit-category' | 'logs' = 'list';
+  private currentView: ManagerView = 'list';
   private editingItem: Snippet | Category | null = null;
   private selectedCategoryId: string | null = null;
+  private collapsedCategoryIds = new Set<string>();
+  private opener: HTMLElement | null = null;
+  private formBaseline = '';
+  private isSaving = false;
+  private dragAbortController: AbortController | null = null;
 
-  constructor() {
-    // 绑定方法到实例
-    this.close = this.close.bind(this);
-    this.handleEscape = this.handleEscape.bind(this);
+  async open(opener: HTMLElement | null = document.activeElement as HTMLElement | null): Promise<void> {
+    if (this.overlay) return;
 
-    // 全局错误捕获
-    this.setupGlobalErrorHandling();
+    this.opener = opener;
+    await snippetManager.loadData();
+    this.createOverlay();
+    this.showListView();
   }
 
-  // ==================== 全局错误捕获 ====================
-  private setupGlobalErrorHandling(): void {
-    // 捕获未处理的 Promise 错误
-    window.addEventListener('unhandledrejection', (event) => {
-      logger.error('SnippetManagerUI', 'Unhandled Promise rejection', {
-        reason: String(event.reason),
-        stack: event.reason?.stack || '(no stack)'
-      });
-      event.preventDefault();
-    });
+  close(force = false): void {
+    if (!this.overlay || (!force && !this.canDiscardForm())) return;
 
-    // 捕获全局 JavaScript 错误
-    window.addEventListener('error', (event) => {
-      logger.error('SnippetManagerUI', 'Global JavaScript error', {
-        message: event.message,
-        filename: event.filename,
-        lineno: event.lineno,
-        colno: event.colno
-      });
-    });
-  }
-
-  // ==================== 公共 API ====================
-
-  open(): void {
-    logger.info('SnippetManagerUI', 'open() called');
-
-    if (this.overlay) {
-      logger.warn('SnippetManagerUI', 'Panel already open');
-      return;
-    }
-
-    snippetManager.loadData()
-      .then(() => {
-        logger.info('SnippetManagerUI', 'Data loaded, creating overlay');
-        this.createOverlay();
-        this.showListView();
-      })
-      .catch(error => {
-        logger.error('SnippetManagerUI', 'Failed to load data on open', { error: String(error) });
-      });
-  }
-
-  close(): void {
-    logger.info('SnippetManagerUI', 'close() called');
-
-    if (!this.overlay) return;
-
-    document.removeEventListener('keydown', this.handleEscape);
+    document.removeEventListener('keydown', this.handleKeyDown);
+    window.removeEventListener('resize', this.clampModalToViewport);
+    this.dragAbortController?.abort();
+    this.dragAbortController = null;
     this.overlay.remove();
     this.overlay = null;
     this.container = null;
     this.currentView = 'list';
     this.editingItem = null;
+    this.formBaseline = '';
+    const opener = this.opener;
+    this.opener = null;
+    opener?.focus();
   }
 
   isOpen(): boolean {
-    return !!this.overlay;
+    return this.overlay !== null;
   }
 
-  // ==================== Overlay 创建 ====================
-
   private createOverlay(): void {
-    logger.info('SnippetManagerUI', 'createOverlay() called');
-
     this.overlay = document.createElement('div');
     this.overlay.className = 'snippet-manager-overlay';
     this.overlay.innerHTML = `
-      <div class="snippet-manager-modal">
+      <div class="snippet-manager-modal" role="dialog" aria-modal="true" aria-labelledby="snippet-manager-title">
         <div class="snippet-manager-header">
-          <h3>📝 Snippet Manager (v2 - Refactored)</h3>
-          <button class="snippet-manager-close" title="Close">&times;</button>
+          <h3 id="snippet-manager-title">Prompt Snippet Manager</h3>
+          <button type="button" class="snippet-manager-close" data-action="close" aria-label="Close">&times;</button>
         </div>
         <div class="snippet-manager-body"></div>
       </div>
     `;
-
     document.body.appendChild(this.overlay);
-    this.container = this.overlay.querySelector('.snippet-manager-body') as HTMLElement;
+    this.container = this.overlay.querySelector('.snippet-manager-body');
 
-    logger.info('SnippetManagerUI', 'Overlay created and appended to body');
-
-    // 关闭按钮
-    const closeBtn = this.overlay.querySelector('.snippet-manager-close') as HTMLElement;
-    if (closeBtn) {
-      closeBtn.addEventListener('click', this.close);
-      logger.info('SnippetManagerUI', 'Close button event bound');
-    }
-
-    // 点击外部关闭
-    this.overlay.addEventListener('click', (e) => {
-      if (e.target === this.overlay) {
-        logger.info('SnippetManagerUI', 'Clicked outside modal, closing');
-        this.close();
-      }
-    });
-
-    // ESC 键
-    document.addEventListener('keydown', this.handleEscape);
-
-    // 拖拽
+    this.overlay.addEventListener('click', this.handleOverlayClick);
+    this.overlay.addEventListener('input', this.handleOverlayInput);
+    this.overlay.addEventListener('change', this.handleOverlayChange);
+    this.overlay.addEventListener('submit', this.handleOverlaySubmit);
+    document.addEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('resize', this.clampModalToViewport);
     this.setupDragging();
   }
 
-  private setupDragging(): void {
-    // 保持原有拖拽逻辑
-    const modal = this.overlay?.querySelector('.snippet-manager-modal') as HTMLElement;
-    const header = this.overlay?.querySelector('.snippet-manager-header') as HTMLElement;
+  private handleOverlayClick = (event: MouseEvent): void => {
+    const target = event.target as HTMLElement;
+    if (target === this.overlay) {
+      this.close();
+      return;
+    }
 
-    if (!modal || !header) return;
+    const actionTarget = target.closest<HTMLElement>('[data-action]');
+    if (actionTarget) {
+      event.preventDefault();
+      void this.handleAction(actionTarget.dataset.action || '', actionTarget.dataset.id || '');
+      return;
+    }
 
-    let isDragging = false;
-    let startX = 0, startY = 0;
-    let initialLeft = 0, initialTop = 0;
+    const header = target.closest<HTMLElement>('.tree-item-header');
+    if (header) this.toggleCategory(header.dataset.categoryId || '');
+  };
 
-    const centerModal = () => {
-      const rect = modal.getBoundingClientRect();
-      const overlayRect = this.overlay!.getBoundingClientRect();
-      initialLeft = (overlayRect.width - rect.width) / 2;
-      initialTop = (overlayRect.height - rect.height) / 2;
-      modal.style.position = 'absolute';
-      modal.style.left = `${initialLeft}px`;
-      modal.style.top = `${initialTop}px`;
-      modal.style.transform = 'none';
-      modal.style.margin = '0';
-    };
+  private handleOverlayInput = (event: Event): void => {
+    const target = event.target as HTMLInputElement;
+    if (target.id === 'snippet-search') this.handleSearch(target.value);
+    if (target.id) this.clearFieldError(target.id);
+  };
 
-    setTimeout(centerModal, 0);
+  private handleOverlayChange = (event: Event): void => {
+    const target = event.target as HTMLInputElement;
+    if (target.id === 'import-file') void this.importSnippets(target);
+  };
 
-    header.addEventListener('mousedown', (e) => {
-      if ((e.target as HTMLElement).closest('.snippet-manager-close')) return;
+  private handleOverlaySubmit = (event: SubmitEvent): void => {
+    event.preventDefault();
+  };
 
-      isDragging = true;
-      startX = e.clientX;
-      startY = e.clientY;
+  private handleKeyDown = (event: KeyboardEvent): void => {
+    if (!this.overlay) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      if (this.currentView === 'list') this.close();
+      else this.returnToList();
+      return;
+    }
 
-      const rect = modal.getBoundingClientRect();
-      const overlayRect = this.overlay!.getBoundingClientRect();
-      initialLeft = rect.left - overlayRect.left;
-      initialTop = rect.top - overlayRect.top;
+    if (event.key === 'Tab') this.trapFocus(event);
+  };
 
-      modal.style.transition = 'none';
-      document.body.style.cursor = 'grabbing';
-      e.preventDefault();
-    });
-
-    document.addEventListener('mousemove', (e) => {
-      if (!isDragging) return;
-
-      const deltaX = e.clientX - startX;
-      const deltaY = e.clientY - startY;
-
-      modal.style.left = `${initialLeft + deltaX}px`;
-      modal.style.top = `${initialTop + deltaY}px`;
-    });
-
-    document.addEventListener('mouseup', () => {
-      if (isDragging) {
-        isDragging = false;
-        modal.style.transition = '';
-        document.body.style.cursor = '';
+  private async handleAction(action: string, id: string): Promise<void> {
+    switch (action) {
+      case 'close': this.close(); break;
+      case 'add-category': this.showEditCategoryView(); break;
+      case 'add-snippet': this.showEditSnippetView(id || undefined); break;
+      case 'edit-category': {
+        const category = snippetManager.getCategory(id);
+        if (category && !snippetManager.isBuiltInCategory(id)) this.showEditCategoryView(category);
+        break;
       }
-    });
-  }
-
-  private handleEscape(e: KeyboardEvent): void {
-    if (e.key === 'Escape') {
-      if (this.currentView !== 'list') {
-        this.showListView();
-      } else {
-        this.close();
+      case 'delete-category': await this.deleteCategory(id); break;
+      case 'edit-snippet': {
+        const snippet = snippetManager.getSnippet(id);
+        if (snippet && !snippetManager.isBuiltInSnippet(id)) {
+          this.showEditSnippetView(this.findSnippetCategoryId(id) || undefined, snippet, true);
+        }
+        break;
       }
+      case 'copy-snippet': this.copyBuiltInSnippet(id); break;
+      case 'delete-snippet': await this.deleteSnippet(id); break;
+      case 'logs': this.showLogsView(); break;
+      case 'export': this.exportSnippets(); break;
+      case 'import': this.container?.querySelector<HTMLInputElement>('#import-file')?.click(); break;
+      case 'reset': await this.resetSnippets(); break;
+      case 'cancel': this.returnToList(); break;
+      case 'save-snippet': await this.handleSaveSnippet(); break;
+      case 'save-category': await this.handleSaveCategory(); break;
+      case 'back': this.showListView(); break;
+      case 'export-logs': logger.exportLogs(); break;
+      case 'clear-logs':
+        if (confirm('Clear all logs?')) {
+          logger.clearLogs();
+          this.showLogsView();
+        }
+        break;
     }
   }
 
-  // ==================== 列表视图 ====================
-
-  private showListView(): void {
-    logger.info('SnippetManagerUI', 'showListView() called');
+  private showListView(message?: { text: string; tone: MessageTone }): void {
+    if (!this.container) return;
     this.currentView = 'list';
     this.editingItem = null;
-
-    const categories = snippetManager.getCategories();
-    logger.info('SnippetManagerUI', 'Categories loaded', { count: categories.length });
-
-    this.container!.innerHTML = `
+    this.selectedCategoryId = null;
+    this.formBaseline = '';
+    this.container.innerHTML = `
       <div class="snippet-manager-toolbar">
-        <button class="btn btn-primary" id="btn-add-category">📁 New Category</button>
-        <button class="btn btn-secondary" id="btn-add-snippet">📝 New Snippet</button>
+        <button type="button" class="btn btn-primary" id="btn-add-category" data-action="add-category">New Category</button>
+        <button type="button" class="btn btn-secondary" id="btn-add-snippet" data-action="add-snippet">New Snippet</button>
         <div class="toolbar-spacer"></div>
-        <button class="btn btn-icon" id="btn-logs" title="View Logs">📋</button>
-        <button class="btn btn-icon" id="btn-export" title="Export">📤</button>
-        <button class="btn btn-icon" id="btn-import" title="Import">📥</button>
-        <button class="btn btn-icon" id="btn-reset" title="Reset to Default">🔄</button>
+        <button type="button" class="btn btn-icon" data-action="logs" title="View logs" aria-label="View logs">&#128203;</button>
+        <button type="button" class="btn btn-icon" data-action="export" title="Export snippets" aria-label="Export snippets">&#8681;</button>
+        <button type="button" class="btn btn-icon" data-action="import" title="Import snippets" aria-label="Import snippets">&#8679;</button>
+        <button type="button" class="btn btn-icon" data-action="reset" title="Reset custom snippets" aria-label="Reset custom snippets">&#8635;</button>
       </div>
+      ${message ? `<div class="panel-message ${message.tone}" role="status">${escapeHTML(message.text)}</div>` : ''}
       <div class="snippet-manager-search">
-        <input type="text" id="snippet-search" placeholder="Search snippets..." />
+        <label class="sr-only" for="snippet-search">Search snippets</label>
+        <input type="search" id="snippet-search" placeholder="Search snippets..." autocomplete="off" />
       </div>
-      <div class="snippet-manager-content">
-        ${this.renderCategoryTree(categories)}
-      </div>
-      <input type="file" id="import-file" accept=".json" style="display:none" />
+      <div class="snippet-manager-content">${this.renderCategoryTree(snippetManager.getCategories())}</div>
+      <input type="file" id="import-file" accept="application/json,.json" hidden />
     `;
-
-    logger.info('SnippetManagerUI', 'List view HTML rendered');
-    this.bindListEvents();
+    this.container.querySelector<HTMLInputElement>('#snippet-search')?.focus();
   }
 
   private renderCategoryTree(categories: Category[], level = 0): string {
     if (categories.length === 0) {
-      return '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">No categories yet</div></div>';
+      return level === 0
+        ? '<div class="empty-state"><div class="empty-text">No categories yet</div></div>'
+        : '';
     }
 
-    return categories.map(cat => {
-      const indent = level * 20;
-      const subcats = cat.subcategories || [];
-      const snippets = cat.snippets || [];
-
+    return categories.map(category => {
+      const subcategories = category.subcategories || [];
+      const snippets = category.snippets || [];
+      const builtIn = snippetManager.isBuiltInCategory(category.id);
+      const collapsed = this.collapsedCategoryIds.has(category.id) ? ' collapsed' : '';
+      const hasChildren = subcategories.length > 0 || snippets.length > 0;
+      const actions = builtIn
+        ? `<span class="origin-badge">Built-in</span>
+           <button type="button" class="btn-icon-sm" data-action="add-snippet" data-id="${escapeHTML(category.id)}" aria-label="Add snippet to ${escapeHTML(category.name)}">+</button>`
+        : `<button type="button" class="btn-icon-sm" data-action="add-snippet" data-id="${escapeHTML(category.id)}" aria-label="Add snippet to ${escapeHTML(category.name)}">+</button>
+           <button type="button" class="btn-icon-sm" data-action="edit-category" data-id="${escapeHTML(category.id)}" aria-label="Edit ${escapeHTML(category.name)}">&#9998;</button>
+           <button type="button" class="btn-icon-sm" data-action="delete-category" data-id="${escapeHTML(category.id)}" aria-label="Delete ${escapeHTML(category.name)}">&#9003;</button>`;
       return `
-        <div class="category-tree-item" style="margin-left: ${indent}px">
-          <div class="tree-item-header" data-category-id="${cat.id}">
-            <span class="tree-toggle">${subcats.length > 0 ? '▼' : ''}</span>
-            <span class="tree-icon">${cat.icon}</span>
-            <span class="tree-name">${cat.name}</span>
+        <div class="category-tree-item${collapsed}" style="margin-left:${level * 20}px">
+          <div class="tree-item-header" data-category-id="${escapeHTML(category.id)}" role="button" tabindex="0" aria-expanded="${!this.collapsedCategoryIds.has(category.id)}">
+            <span class="tree-toggle">${hasChildren ? '&#9660;' : ''}</span>
+            <span class="tree-icon">${escapeHTML(category.icon)}</span>
+            <span class="tree-name">${escapeHTML(category.name)}</span>
             <span class="tree-count">${snippets.length}</span>
-            <div class="tree-actions">
-              <button class="btn-icon-sm" data-action="add-snippet" data-id="${cat.id}" title="Add Snippet">➕</button>
-              <button class="btn-icon-sm" data-action="edit-category" data-id="${cat.id}" title="Edit">✏️</button>
-              <button class="btn-icon-sm" data-action="delete-category" data-id="${cat.id}" title="Delete">🗑️</button>
-            </div>
+            <div class="tree-actions">${actions}</div>
           </div>
           <div class="tree-children">
-            ${snippets.map(s => `
-              <div class="tree-snippet-item" data-snippet-id="${s.id}">
-                <span class="snippet-icon">📝</span>
-                <span class="snippet-name">${s.name}</span>
-                <div class="snippet-actions">
-                  <button class="btn-icon-sm" data-action="edit-snippet" data-id="${s.id}" title="Edit">✏️</button>
-                  <button class="btn-icon-sm" data-action="delete-snippet" data-id="${s.id}" title="Delete">🗑️</button>
-                </div>
-              </div>
-            `).join('')}
-            ${this.renderCategoryTree(subcats, level + 1)}
+            ${snippets.map(snippet => this.renderSnippetRow(snippet)).join('')}
+            ${this.renderCategoryTree(subcategories, level + 1)}
           </div>
         </div>
       `;
     }).join('');
   }
 
-  private bindListEvents(): void {
-    logger.info('SnippetManagerUI', 'bindListEvents() - 开始绑定事件');
+  private renderSnippetRow(snippet: Snippet): string {
+    const builtIn = snippetManager.isBuiltInSnippet(snippet.id);
+    const actions = builtIn
+      ? `<span class="origin-badge">Built-in</span>
+         <button type="button" class="btn-icon-sm" data-action="copy-snippet" data-id="${escapeHTML(snippet.id)}" aria-label="Copy ${escapeHTML(snippet.name)}">&#10697;</button>`
+      : `<button type="button" class="btn-icon-sm" data-action="edit-snippet" data-id="${escapeHTML(snippet.id)}" aria-label="Edit ${escapeHTML(snippet.name)}">&#9998;</button>
+         <button type="button" class="btn-icon-sm" data-action="delete-snippet" data-id="${escapeHTML(snippet.id)}" aria-label="Delete ${escapeHTML(snippet.name)}">&#9003;</button>`;
+    return `
+      <div class="tree-snippet-item" data-snippet-id="${escapeHTML(snippet.id)}">
+        <span class="snippet-icon">&#128221;</span>
+        <span class="snippet-name">${escapeHTML(snippet.name)}</span>
+        <div class="snippet-actions">${actions}</div>
+      </div>
+    `;
+  }
 
-    // 添加分类按钮
-    const addCategoryBtn = document.getElementById('btn-add-category');
-    if (addCategoryBtn) {
-      addCategoryBtn.addEventListener('click', () => {
-        logger.info('SnippetManagerUI', 'Add category button clicked');
-        this.showEditCategoryView();
-      });
-      logger.info('SnippetManagerUI', '✓ Add category button bound');
-    } else {
-      logger.error('SnippetManagerUI', '✗ Add category button NOT FOUND');
-    }
+  private toggleCategory(id: string): void {
+    if (!id) return;
+    if (this.collapsedCategoryIds.has(id)) this.collapsedCategoryIds.delete(id);
+    else this.collapsedCategoryIds.add(id);
 
-    // 添加 snippet 按钮
-    const addSnippetBtn = document.getElementById('btn-add-snippet');
-    if (addSnippetBtn) {
-      addSnippetBtn.addEventListener('click', () => {
-        logger.info('SnippetManagerUI', 'Add snippet button clicked');
-        this.showEditSnippetView();
-      });
-      logger.info('SnippetManagerUI', '✓ Add snippet button bound');
-    }
-
-    // 搜索
-    const searchInput = document.getElementById('snippet-search') as HTMLInputElement;
-    if (searchInput) {
-      searchInput.addEventListener('input', (e) => {
-        const query = (e.target as HTMLInputElement).value;
-        this.handleSearch(query);
-      });
-      logger.info('SnippetManagerUI', '✓ Search input bound');
-    }
-
-    // 树形项目点击
-    this.container?.addEventListener('click', async (e) => {
-      const target = e.target as HTMLElement;
-      const action = target.dataset.action;
-      const id = target.dataset.id;
-
-      if (action && id) {
-        logger.info('SnippetManagerUI', 'Tree action triggered', { action, id });
-
-        try {
-          if (action === 'add-snippet') {
-            this.showEditSnippetView(id);
-          } else if (action === 'edit-category') {
-            const cat = snippetManager.getCategory(id);
-            if (cat) this.showEditCategoryView(cat);
-          } else if (action === 'delete-category') {
-            await this.deleteCategory(id);
-          } else if (action === 'edit-snippet') {
-            const snippet = snippetManager.getSnippet(id);
-            if (snippet) {
-              const catId = this.findSnippetCategoryId(id);
-              this.showEditSnippetView(catId || undefined, snippet);
-            }
-          } else if (action === 'delete-snippet') {
-            await this.deleteSnippet(id);
-          }
-        } catch (error) {
-          logger.error('SnippetManagerUI', 'Error handling tree action', {
-            action,
-            id,
-            error: String(error),
-            stack: (error as Error).stack
-          });
-        }
-      }
-    });
-
-    // 日志按钮
-    const logsBtn = document.getElementById('btn-logs');
-    if (logsBtn) {
-      logsBtn.addEventListener('click', () => {
-        logger.info('SnippetManagerUI', 'Logs button clicked');
-        this.showLogsView();
-      });
-      logger.info('SnippetManagerUI', '✓ Logs button bound');
-    }
-
-    // 导出按钮
-    document.getElementById('btn-export')?.addEventListener('click', () => {
-      logger.info('SnippetManagerUI', 'Export button clicked');
-      this.exportSnippets();
-    });
-
-    // 导入按钮
-    document.getElementById('btn-import')?.addEventListener('click', () => {
-      logger.info('SnippetManagerUI', 'Import button clicked');
-      const fileInput = document.getElementById('import-file') as HTMLInputElement;
-      if (fileInput) fileInput.click();
-    });
-
-    const importFileInput = document.getElementById('import-file') as HTMLInputElement;
-    if (importFileInput) {
-      importFileInput.addEventListener('change', (e) => {
-        this.importSnippets(e.target as HTMLInputElement);
-      });
-      logger.info('SnippetManagerUI', '✓ Import file input bound');
-    }
-
-    // 重置按钮
-    document.getElementById('btn-reset')?.addEventListener('click', () => {
-      if (confirm('Reset all snippets to default? This will delete your custom snippets.')) {
-        logger.info('SnippetManagerUI', 'Reset confirmed by user');
-        snippetManager.resetToDefault();
-        this.showListView();
-      }
-    });
-
-    // 折叠/展开树节点
-    this.container?.querySelectorAll('.tree-item-header').forEach(header => {
-      header.addEventListener('click', (e) => {
-        if ((e.target as HTMLElement).closest('.tree-actions')) return;
-
-        const item = (e.currentTarget as HTMLElement).closest('.category-tree-item');
-        if (item) {
-          item.classList.toggle('collapsed');
-        }
-      });
-    });
-
-    logger.info('SnippetManagerUI', 'bindListEvents() 完成 - 所有事件已绑定');
+    const header = Array.from(this.container?.querySelectorAll<HTMLElement>('.tree-item-header') || [])
+      .find(item => item.dataset.categoryId === id);
+    const category = header?.closest('.category-tree-item');
+    category?.classList.toggle('collapsed', this.collapsedCategoryIds.has(id));
+    header?.setAttribute('aria-expanded', String(!this.collapsedCategoryIds.has(id)));
   }
 
   private handleSearch(query: string): void {
-    const contentEl = this.container?.querySelector('.snippet-manager-content');
-    if (!contentEl) return;
-
+    const content = this.container?.querySelector<HTMLElement>('.snippet-manager-content');
+    if (!content) return;
     if (!query.trim()) {
-      const categories = snippetManager.getCategories();
-      contentEl.innerHTML = this.renderCategoryTree(categories);
+      content.innerHTML = this.renderCategoryTree(snippetManager.getCategories());
       return;
     }
 
     const results = snippetManager.searchSnippets(query);
-
-    if (results.length === 0) {
-      contentEl.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-text">No results found</div></div>';
-    } else {
-      contentEl.innerHTML = `
-        <div class="search-results">
-          ${results.map(r => `
-            <div class="search-result-item" data-snippet-id="${r.snippet.id}">
-              <div class="result-header">
-                <span class="result-icon">📝</span>
-                <span class="result-name">${r.snippet.name}</span>
-                <div class="result-actions">
-                  <button class="btn-icon-sm" data-action="edit-snippet" data-id="${r.snippet.id}">✏️</button>
-                  <button class="btn-icon-sm" data-action="delete-snippet" data-id="${r.snippet.id}">🗑️</button>
-                </div>
-              </div>
-              <div class="result-path">${r.path}</div>
-              <div class="result-desc">${r.snippet.description}</div>
+    content.innerHTML = results.length === 0
+      ? '<div class="empty-state"><div class="empty-text">No results found</div></div>'
+      : `<div class="search-results">${results.map(result => `
+          <div class="search-result-item" data-snippet-id="${escapeHTML(result.snippet.id)}">
+            <div class="result-header">
+              <span class="result-name">${escapeHTML(result.snippet.name)}</span>
+              <div class="result-actions">${this.renderSearchActions(result.snippet)}</div>
             </div>
-          `).join('')}
-        </div>
-      `;
-    }
+            <div class="result-path">${escapeHTML(result.path)}</div>
+            <div class="result-desc">${escapeHTML(result.snippet.description)}</div>
+          </div>
+        `).join('')}</div>`;
   }
 
-  // ==================== 编辑 Snippet 视图 ====================
+  private renderSearchActions(snippet: Snippet): string {
+    return snippetManager.isBuiltInSnippet(snippet.id)
+      ? `<button type="button" class="btn-icon-sm" data-action="copy-snippet" data-id="${escapeHTML(snippet.id)}" aria-label="Copy ${escapeHTML(snippet.name)}">&#10697;</button>`
+      : `<button type="button" class="btn-icon-sm" data-action="edit-snippet" data-id="${escapeHTML(snippet.id)}" aria-label="Edit ${escapeHTML(snippet.name)}">&#9998;</button>
+         <button type="button" class="btn-icon-sm" data-action="delete-snippet" data-id="${escapeHTML(snippet.id)}" aria-label="Delete ${escapeHTML(snippet.name)}">&#9003;</button>`;
+  }
 
-  private showEditSnippetView(categoryId?: string, snippet?: Snippet): void {
-    logger.info('SnippetManagerUI', 'showEditSnippetView() called', {
-      categoryId,
-      isEditing: !!snippet
-    });
-
+  private showEditSnippetView(categoryId?: string, snippet?: Snippet, editing = Boolean(snippet)): void {
+    if (!this.container) return;
     this.currentView = 'edit-snippet';
-    this.editingItem = snippet || null;
+    this.editingItem = editing ? snippet || null : null;
     this.selectedCategoryId = categoryId || null;
-
-    const categories = snippetManager.getCategories();
-    const isEditing = !!snippet;
-
-    this.container!.innerHTML = `
-      <div class="snippet-edit-form">
-        <h4>${isEditing ? '✏️ Edit Snippet' : '📝 New Snippet'}</h4>
+    const selectedCategoryId = categoryId || this.firstCategoryId(snippetManager.getCategories()) || '';
+    this.container.innerHTML = `
+      <form class="snippet-edit-form" novalidate>
+        <h4>${editing ? 'Edit Snippet' : 'New Snippet'}</h4>
         <div class="form-scroll-container">
+          ${this.renderTextField('snippet-id', 'ID', snippet?.id || '', 'unique-snippet-id', true, editing)}
+          ${this.renderTextField('snippet-name', 'Name', snippet?.name || '', 'Snippet name', true)}
+          ${this.renderTextField('snippet-desc', 'Description', snippet?.description || '', 'Brief description')}
           <div class="form-group">
-            <label>ID <span class="required">*</span></label>
-            <input type="text" id="snippet-id" value="${snippet?.id || ''}" ${isEditing ? 'disabled' : ''} placeholder="unique-snippet-id" />
-            <div class="form-hint">Unique identifier, cannot be changed later</div>
+            <label for="snippet-category">Category</label>
+            <select id="snippet-category">${this.renderCategoryOptions(snippetManager.getCategories(), selectedCategoryId)}</select>
           </div>
           <div class="form-group">
-            <label>Name <span class="required">*</span></label>
-            <input type="text" id="snippet-name" value="${snippet?.name || ''}" placeholder="Snippet Name" />
-          </div>
-          <div class="form-group">
-            <label>Description</label>
-            <input type="text" id="snippet-desc" value="${snippet?.description || ''}" placeholder="Brief description" />
-          </div>
-          <div class="form-group">
-            <label>Category</label>
-            <select id="snippet-category">
-              ${this.renderCategoryOptions(categories, categoryId || '')}
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Content <span class="required">*</span></label>
-            <textarea id="snippet-content" rows="12" placeholder="Snippet content...">${snippet?.content || ''}</textarea>
+            <label for="snippet-content">Content <span class="required">*</span></label>
+            <textarea id="snippet-content" rows="12" placeholder="Snippet content...">${escapeHTML(snippet?.content || '')}</textarea>
+            <div class="form-error" data-error-for="snippet-content" aria-live="polite"></div>
           </div>
         </div>
         <div class="form-actions">
-          <button class="btn btn-secondary" id="btn-cancel">Cancel</button>
-          <button class="btn btn-primary" id="btn-save-snippet">Save Snippet</button>
+          <button type="button" class="btn btn-secondary" id="btn-cancel" data-action="cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-snippet" data-action="save-snippet">Save Snippet</button>
         </div>
+      </form>
+    `;
+    this.captureFormBaseline();
+    this.container.querySelector<HTMLInputElement>(editing ? '#snippet-name' : '#snippet-id')?.focus();
+  }
+
+  private renderTextField(id: string, label: string, value: string, placeholder: string, required = false, disabled = false): string {
+    return `
+      <div class="form-group">
+        <label for="${id}">${label}${required ? ' <span class="required">*</span>' : ''}</label>
+        <input type="text" id="${id}" value="${escapeHTML(value)}" placeholder="${escapeHTML(placeholder)}" ${disabled ? 'disabled' : ''} />
+        ${id.endsWith('-id') ? '<div class="form-hint">Unique identifier; it cannot be changed later</div>' : ''}
+        <div class="form-error" data-error-for="${id}" aria-live="polite"></div>
       </div>
     `;
-
-    logger.info('SnippetManagerUI', 'Edit snippet form rendered');
-
-    // 绑定事件
-    const cancelBtn = document.getElementById('btn-cancel');
-    const saveBtn = document.getElementById('btn-save-snippet');
-
-    if (cancelBtn) {
-      cancelBtn.addEventListener('click', () => {
-        logger.info('SnippetManagerUI', 'Cancel button clicked (snippet edit)');
-        this.showListView();
-      });
-      logger.info('SnippetManagerUI', '✓ Cancel button bound (snippet edit)');
-    }
-
-    if (saveBtn) {
-      saveBtn.addEventListener('click', async () => {
-        logger.info('SnippetManagerUI', 'Save Snippet button clicked');
-        await this.handleSaveSnippet();
-      });
-      logger.info('SnippetManagerUI', '✓ Save Snippet button bound');
-    } else {
-      logger.error('SnippetManagerUI', '✗ Save Snippet button NOT FOUND');
-    }
   }
 
   private async handleSaveSnippet(): Promise<void> {
-    logger.info('SnippetManagerUI', 'handleSaveSnippet() called');
+    if (this.isSaving || !this.container) return;
+    this.clearAllFieldErrors();
+    const id = this.valueOf('snippet-id').trim();
+    const name = this.valueOf('snippet-name').trim();
+    const description = this.valueOf('snippet-desc').trim();
+    const content = this.valueOf('snippet-content');
+    const categoryId = this.valueOf('snippet-category');
 
+    if (!id) return this.showFieldError('snippet-id', 'ID is required.');
+    if (!name) return this.showFieldError('snippet-name', 'Name is required.');
+    if (!content.trim()) return this.showFieldError('snippet-content', 'Content is required.');
+    if (!categoryId) return this.showFieldError('snippet-category', 'Category is required.');
+
+    const button = this.container.querySelector<HTMLButtonElement>('#btn-save-snippet');
+    if (!button) return;
+    this.setSaving(button, true, 'Save Snippet');
     try {
-      // 获取表单元素
-      const idEl = document.getElementById('snippet-id') as HTMLInputElement;
-      const nameEl = document.getElementById('snippet-name') as HTMLInputElement;
-      const descEl = document.getElementById('snippet-desc') as HTMLInputElement;
-      const contentEl = document.getElementById('snippet-content') as HTMLTextAreaElement;
-      const categoryEl = document.getElementById('snippet-category') as HTMLSelectElement;
-
-      logger.debug('SnippetManagerUI', 'Form elements retrieved', {
-        hasId: !!idEl,
-        hasName: !!nameEl,
-        hasDesc: !!descEl,
-        hasContent: !!contentEl,
-        hasCategory: !!categoryEl
-      });
-
-      // 获取值
-      const id = idEl?.value.trim();
-      const name = nameEl?.value.trim();
-      const description = descEl?.value.trim();
-      const content = contentEl?.value;
-      const categoryId = categoryEl?.value;
-
-      logger.info('SnippetManagerUI', 'Form values', { id, name, description, categoryId, contentLength: content?.length });
-
-      // 验证
-      if (!id || !name || !content) {
-        logger.warn('SnippetManagerUI', 'Validation failed', { hasId: !!id, hasName: !!name, hasContent: !!content });
-        alert('Please fill in ID, Name, and Content');
+      const snippet = { id, name, description, content };
+      const success = this.editingItem
+        ? await snippetManager.updateSnippet(id, snippet, categoryId)
+        : await snippetManager.addSnippet(snippet, categoryId);
+      if (!success) {
+        this.showPanelMessage('Unable to save. The ID may already exist.', 'error');
         return;
       }
-
-      // 创建 snippet 对象
-      const snippet: Snippet = {
-        id,
-        name,
-        description: description || '',
-        content
-      };
-
-      logger.info('SnippetManagerUI', 'Snippet object created', snippet);
-
-      // 调用 API
-      const isEditing = this.editingItem !== null;
-      let success: boolean;
-
-      if (isEditing) {
-        logger.info('SnippetManagerUI', 'Calling updateSnippet API');
-        success = await snippetManager.updateSnippet(id, snippet);
-      } else {
-        logger.info('SnippetManagerUI', 'Calling addSnippet API', { snippetId: id, categoryId });
-        success = await snippetManager.addSnippet(snippet, categoryId);
-      }
-
-      logger.info('SnippetManagerUI', 'API call result', { success });
-
-      if (success) {
-        logger.info('SnippetManagerUI', 'Snippet saved successfully');
-        this.showListView();
-      } else {
-        logger.error('SnippetManagerUI', 'Snippet save failed');
-        alert('Failed to save snippet. ID may already exist.');
-      }
+      this.formBaseline = this.serializeCurrentForm();
+      this.showListView({ text: 'Snippet saved.', tone: 'success' });
     } catch (error) {
-      logger.error('SnippetManagerUI', 'Exception in handleSaveSnippet', {
-        error: String(error),
-        stack: (error as Error).stack
-      });
-      alert('Error saving snippet: ' + String(error));
+      logger.error('SnippetManagerUI', 'Failed to save snippet', { error: String(error) });
+      this.showPanelMessage('Unable to save the snippet.', 'error');
+    } finally {
+      if (button.isConnected) this.setSaving(button, false, 'Save Snippet');
     }
   }
 
-  // ==================== 编辑 Category 视图 ====================
-
   private showEditCategoryView(category?: Category): void {
-    logger.info('SnippetManagerUI', 'showEditCategoryView() called', {
-      isEditing: !!category,
-      categoryId: category?.id
-    });
-
+    if (!this.container) return;
+    const editing = Boolean(category);
     this.currentView = 'edit-category';
     this.editingItem = category || null;
-
-    const isEditing = !!category;
-    const categories = snippetManager.getCategories();
-
-    this.container!.innerHTML = `
-      <div class="snippet-edit-form">
-        <h4>${isEditing ? '✏️ Edit Category' : '📁 New Category'}</h4>
+    this.container.innerHTML = `
+      <form class="snippet-edit-form" novalidate>
+        <h4>${editing ? 'Edit Category' : 'New Category'}</h4>
         <div class="form-scroll-container">
-          <div class="form-group">
-            <label>ID <span class="required">*</span></label>
-            <input type="text" id="category-id" value="${category?.id || ''}" ${isEditing ? 'disabled' : ''} placeholder="unique-category-id" />
-            <div class="form-hint">Unique identifier, cannot be changed later</div>
-          </div>
-          <div class="form-group">
-            <label>Name <span class="required">*</span></label>
-            <input type="text" id="category-name" value="${category?.name || ''}" placeholder="Category Name" />
-          </div>
-          <div class="form-group">
-            <label>Icon</label>
-            <input type="text" id="category-icon" value="${category?.icon || '📁'}" placeholder="📁" />
-            <div class="form-hint">Emoji or icon character</div>
-          </div>
-          <div class="form-group">
-            <label>Description</label>
-            <input type="text" id="category-desc" value="${category?.description || ''}" placeholder="Brief description" />
-          </div>
-          ${!isEditing ? `
-          <div class="form-group">
-            <label>Parent Category (optional)</label>
-            <select id="category-parent">
-              <option value="">-- Root Level --</option>
-              ${this.renderCategoryOptions(categories, '')}
-            </select>
-          </div>
-          ` : ''}
+          ${this.renderTextField('category-id', 'ID', category?.id || '', 'unique-category-id', true, editing)}
+          ${this.renderTextField('category-name', 'Name', category?.name || '', 'Category name', true)}
+          ${this.renderTextField('category-icon', 'Icon', category?.icon || '', 'Icon', true)}
+          ${this.renderTextField('category-desc', 'Description', category?.description || '', 'Brief description')}
+          ${editing ? '' : `<div class="form-group">
+            <label for="category-parent">Parent Category</label>
+            <select id="category-parent"><option value="">Root level</option>${this.renderCategoryOptions(snippetManager.getCategories(), '')}</select>
+          </div>`}
         </div>
         <div class="form-actions">
-          <button class="btn btn-secondary" id="btn-cancel">Cancel</button>
-          <button class="btn btn-primary btn-save-category">Save Category</button>
+          <button type="button" class="btn btn-secondary" id="btn-cancel" data-action="cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" data-action="save-category">Save Category</button>
         </div>
-      </div>
+      </form>
     `;
-
-    logger.info('SnippetManagerUI', 'Edit category form rendered');
-
-    // 绑定事件 - 使用更可靠的方式
-    const cancelBtn = document.getElementById('btn-cancel');
-    const saveBtn = document.querySelector('.btn-save-category');
-
-    logger.info('SnippetManagerUI', 'Buttons found', {
-      hasCancel: !!cancelBtn,
-      hasSave: !!saveBtn,
-      saveBtnClass: saveBtn?.className
-    });
-
-    if (cancelBtn) {
-      // 使用 onclick 直接绑定，确保可靠性
-      cancelBtn.onclick = () => {
-        logger.info('SnippetManagerUI', 'Cancel button clicked (category edit)');
-        this.showListView();
-      };
-      logger.info('SnippetManagerUI', '✓ Cancel button bound (category edit)');
-    } else {
-      logger.error('SnippetManagerUI', '✗ Cancel button NOT FOUND');
-    }
-
-    if (saveBtn) {
-      // 使用 onclick 直接绑定，确保可靠性
-      saveBtn.onclick = async () => {
-        logger.info('SnippetManagerUI', 'Save Category button clicked');
-        await this.handleSaveCategory();
-      };
-      logger.info('SnippetManagerUI', '✓ Save Category button bound');
-    } else {
-      logger.error('SnippetManagerUI', '✗ Save Category button NOT FOUND');
-
-      // 尝试备用查找方式
-      const backupSaveBtn = document.getElementById('btn-save') || document.querySelector('.form-actions .btn-primary');
-      if (backupSaveBtn) {
-        logger.info('SnippetManagerUI', 'Found backup save button, binding it');
-        backupSaveBtn.onclick = async () => {
-          logger.info('SnippetManagerUI', 'Backup Save button clicked');
-          await this.handleSaveCategory();
-        };
-      }
-    }
+    this.captureFormBaseline();
+    this.container.querySelector<HTMLInputElement>(editing ? '#category-name' : '#category-id')?.focus();
   }
 
   private async handleSaveCategory(): Promise<void> {
-    logger.info('SnippetManagerUI', '★★★ handleSaveCategory() called ★★★');
+    if (this.isSaving || !this.container) return;
+    this.clearAllFieldErrors();
+    const id = this.valueOf('category-id').trim();
+    const name = this.valueOf('category-name').trim();
+    const icon = this.valueOf('category-icon').trim();
+    const description = this.valueOf('category-desc').trim();
+    const parentId = this.valueOf('category-parent') || undefined;
+    if (!id) return this.showFieldError('category-id', 'ID is required.');
+    if (!name) return this.showFieldError('category-name', 'Name is required.');
+    if (!icon) return this.showFieldError('category-icon', 'Icon is required.');
 
+    const button = this.container.querySelector<HTMLButtonElement>('[data-action="save-category"]');
+    if (!button) return;
+    this.setSaving(button, true, 'Save Category');
     try {
-      // 获取表单元素
-      const idEl = document.getElementById('category-id') as HTMLInputElement;
-      const nameEl = document.getElementById('category-name') as HTMLInputElement;
-      const iconEl = document.getElementById('category-icon') as HTMLInputElement;
-      const descEl = document.getElementById('category-desc') as HTMLInputElement;
-      const parentEl = document.getElementById('category-parent') as HTMLSelectElement;
-
-      logger.debug('SnippetManagerUI', 'Form elements check', {
-        hasIdEl: !!idEl,
-        hasNameEl: !!nameEl,
-        hasIconEl: !!iconEl,
-        hasDescEl: !!descEl,
-        hasParentEl: !!parentEl
-      });
-
-      if (!idEl || !nameEl) {
-        logger.error('SnippetManagerUI', 'Form elements missing!', {
-          idEl: !!idEl,
-          nameEl: !!nameEl
-        });
-        alert('Form elements not found. Please try again.');
+      const category = { id, name, icon, description };
+      const success = this.editingItem
+        ? await snippetManager.updateCategory(id, category)
+        : await snippetManager.addCategory(category, parentId);
+      if (!success) {
+        this.showPanelMessage('Unable to save. The ID may already exist.', 'error');
         return;
       }
-
-      // 获取值
-      const id = idEl.value.trim();
-      const name = nameEl.value.trim();
-      const icon = iconEl?.value.trim() || '📁';
-      const description = descEl?.value.trim() || '';
-      const parentId = parentEl?.value || undefined;
-
-      logger.info('SnippetManagerUI', '★ Form values extracted', {
-        id,
-        name,
-        icon,
-        description,
-        parentId
-      });
-
-      // 验证必填字段
-      if (!id || !name) {
-        logger.warn('SnippetManagerUI', 'Validation failed', {
-          hasId: !!id,
-          hasName: !!name
-        });
-        alert('Please fill in ID and Name');
-        return;
-      }
-
-      logger.info('SnippetManagerUI', '✓ Validation passed');
-
-      // 创建分类对象
-      const category: Category = {
-        id,
-        name,
-        icon,
-        description
-      };
-
-      logger.info('SnippetManagerUI', '★ Category object created', category);
-
-      // 判断是否编辑模式
-      const isEditing = this.editingItem !== null;
-      logger.info('SnippetManagerUI', 'Edit mode', { isEditing });
-
-      // 调用 API
-      let success: boolean;
-
-      if (isEditing) {
-        logger.info('SnippetManagerUI', '★ Calling updateCategory API');
-        success = await snippetManager.updateCategory(id, category);
-      } else {
-        logger.info('SnippetManagerUI', '★ Calling addCategory API', {
-          categoryId: id,
-          parentId: parentId
-        });
-        success = await snippetManager.addCategory(category, parentId);
-      }
-
-      logger.info('SnippetManagerUI', '★ API call completed', { success });
-
-      if (success) {
-        logger.info('SnippetManagerUI', '✓✓✓ Category saved successfully!');
-        alert('✓ Category saved successfully!');
-        this.showListView();
-      } else {
-        logger.error('SnippetManagerUI', '✗✗✗ Category save failed');
-        alert('Failed to save category. ID may already exist.');
-      }
-    } catch (error) {
-      logger.error('SnippetManagerUI', '✗✗✗ Exception in handleSaveCategory', {
-        error: String(error),
-        stack: (error as Error).stack
-      });
-      alert('Error saving category: ' + String(error));
+      this.formBaseline = this.serializeCurrentForm();
+      this.showListView({ text: 'Category saved.', tone: 'success' });
+    } finally {
+      if (button.isConnected) this.setSaving(button, false, 'Save Category');
     }
   }
 
-  // ==================== 删除操作 ====================
+  private copyBuiltInSnippet(id: string): void {
+    const source = snippetManager.getSnippet(id);
+    if (!source) return;
+    this.showEditSnippetView(this.findSnippetCategoryId(id) || undefined, {
+      ...source,
+      id: this.createCopyId(source.id),
+      name: `${source.name} Copy`,
+    }, false);
+  }
+
+  private createCopyId(sourceId: string): string {
+    let candidate = `${sourceId}-copy`;
+    let suffix = 2;
+    while (snippetManager.getSnippet(candidate)) candidate = `${sourceId}-copy-${suffix++}`;
+    return candidate;
+  }
 
   private async deleteCategory(id: string): Promise<void> {
-    logger.info('SnippetManagerUI', 'deleteCategory() called', { id });
-
+    if (snippetManager.isBuiltInCategory(id)) return;
     const category = snippetManager.getCategory(id);
-    if (!category) {
-      logger.warn('SnippetManagerUI', 'Category not found', { id });
-      return;
-    }
-
-    const hasChildren = (category.subcategories?.length || 0) + (category.snippets?.length || 0);
-    const message = hasChildren > 0
-      ? `Delete "${category.name}" and all its ${hasChildren} item(s)? This cannot be undone.`
-      : `Delete "${category.name}"? This cannot be undone.`;
-
-    if (confirm(message)) {
-      logger.info('SnippetManagerUI', 'Delete confirmed', { id, hasChildren });
-
-      try {
-        const success = await snippetManager.deleteCategory(id);
-        logger.info('SnippetManagerUI', 'Delete result', { success });
-
-        if (success) {
-          this.showListView();
-        }
-      } catch (error) {
-        logger.error('SnippetManagerUI', 'Error deleting category', {
-          id,
-          error: String(error)
-        });
-        alert('Error deleting category: ' + String(error));
-      }
-    }
+    if (!category || !confirm(`Delete "${category.name}" and its contents?`)) return;
+    const success = await snippetManager.deleteCategory(id);
+    this.showListView(success
+      ? { text: 'Category deleted.', tone: 'success' }
+      : { text: 'Unable to delete the category.', tone: 'error' });
   }
 
   private async deleteSnippet(id: string): Promise<void> {
-    logger.info('SnippetManagerUI', 'deleteSnippet() called', { id });
-
+    if (snippetManager.isBuiltInSnippet(id)) return;
     const snippet = snippetManager.getSnippet(id);
-    if (!snippet) {
-      logger.warn('SnippetManagerUI', 'Snippet not found', { id });
-      return;
-    }
-
-    if (confirm(`Delete "${snippet.name}"? This cannot be undone.`)) {
-      logger.info('SnippetManagerUI', 'Delete confirmed', { id });
-
-      try {
-        const success = await snippetManager.deleteSnippet(id);
-        logger.info('SnippetManagerUI', 'Delete result', { success });
-
-        if (success) {
-          this.showListView();
-        }
-      } catch (error) {
-        logger.error('SnippetManagerUI', 'Error deleting snippet', {
-          id,
-          error: String(error)
-        });
-        alert('Error deleting snippet: ' + String(error));
-      }
-    }
+    if (!snippet || !confirm(`Delete "${snippet.name}"?`)) return;
+    const success = await snippetManager.deleteSnippet(id);
+    this.showListView(success
+      ? { text: 'Snippet deleted.', tone: 'success' }
+      : { text: 'Unable to delete the snippet.', tone: 'error' });
   }
 
-  // ==================== 导入导出 ====================
+  private async resetSnippets(): Promise<void> {
+    if (!confirm('Reset all custom snippets to default?')) return;
+    await snippetManager.resetToDefault();
+    this.collapsedCategoryIds.clear();
+    this.showListView({ text: 'Custom snippets reset.', tone: 'success' });
+  }
 
   private exportSnippets(): void {
-    logger.info('SnippetManagerUI', 'exportSnippets() called');
-
     try {
-      const json = snippetManager.exportData();
-      const blob = new Blob([json], { type: 'application/json' });
+      const blob = new Blob([snippetManager.exportData()], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
-
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `prompt-snippets-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `prompt-snippets-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
       URL.revokeObjectURL(url);
-
-      logger.info('SnippetManagerUI', 'Export completed');
     } catch (error) {
-      logger.error('SnippetManagerUI', 'Export failed', { error: String(error) });
-      alert('Failed to export: ' + String(error));
+      logger.error('SnippetManagerUI', 'Failed to export snippets', { error: String(error) });
+      this.showPanelMessage('Unable to export snippets.', 'error');
     }
   }
 
-  private importSnippets(fileInput: HTMLInputElement): void {
-    logger.info('SnippetManagerUI', 'importSnippets() called');
-
+  private async importSnippets(fileInput: HTMLInputElement): Promise<void> {
     const file = fileInput.files?.[0];
-    if (!file) {
-      logger.warn('SnippetManagerUI', 'No file selected');
-      return;
-    }
-
-    logger.info('SnippetManagerUI', 'File selected', { fileName: file.name, fileSize: file.size });
-
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const json = e.target?.result as string;
-        logger.debug('SnippetManagerUI', 'File read', { jsonLength: json.length });
-
-        const success = await snippetManager.importData(json);
-        logger.info('SnippetManagerUI', 'Import result', { success });
-
-        if (success) {
-          alert('Snippets imported successfully!');
-          this.showListView();
-        } else {
-          alert('Failed to import. Invalid file format.');
-        }
-      } catch (err) {
-        logger.error('SnippetManagerUI', 'Import error', { error: String(err) });
-        alert('Failed to import: ' + String(err));
+    if (!file) return;
+    try {
+      const result = await snippetManager.importData(await file.text());
+      if (!result.success) {
+        this.showPanelMessage(result.error || 'Invalid snippet file.', 'error');
+        return;
       }
-    };
-
-    reader.onerror = () => {
-      logger.error('SnippetManagerUI', 'FileReader error');
-      alert('Failed to read file');
-    };
-
-    reader.readAsText(file);
-    fileInput.value = '';
+      this.showListView({ text: 'Snippets imported.', tone: 'success' });
+    } catch (error) {
+      logger.error('SnippetManagerUI', 'Failed to import snippets', { error: String(error) });
+      this.showPanelMessage('Unable to read the selected file.', 'error');
+    } finally {
+      fileInput.value = '';
+    }
   }
-
-  // ==================== 日志视图 ====================
 
   private showLogsView(): void {
-    logger.info('SnippetManagerUI', 'showLogsView() called');
+    if (!this.container) return;
     this.currentView = 'logs';
-
-    const logs = logger.getRecentLogs(100);
-    logger.debug('SnippetManagerUI', 'Logs retrieved', { logCount: logs.split('\n').length });
-
-    this.container!.innerHTML = `
+    this.editingItem = null;
+    this.container.innerHTML = `
       <div class="logs-view">
-        <h4>📋 Debug Logs (Last 100 entries)</h4>
+        <h4>Debug Logs</h4>
         <div class="logs-toolbar">
-          <button class="btn btn-secondary" id="btn-back">← Back</button>
-          <button class="btn btn-primary" id="btn-export-logs">Export All Logs</button>
-          <button class="btn btn-warning" id="btn-clear-logs">Clear Logs</button>
+          <button type="button" class="btn btn-secondary" data-action="back">Back</button>
+          <button type="button" class="btn btn-primary" data-action="export-logs">Export Logs</button>
+          <button type="button" class="btn btn-warning" data-action="clear-logs">Clear Logs</button>
         </div>
-        <div class="logs-content">
-          <textarea id="logs-textarea" rows="20" readonly>${logs}</textarea>
-        </div>
+        <div class="logs-content"><textarea readonly rows="20">${escapeHTML(logger.getRecentLogs(100))}</textarea></div>
       </div>
     `;
-
-    document.getElementById('btn-back')?.addEventListener('click', () => {
-      this.showListView();
-    });
-
-    document.getElementById('btn-export-logs')?.addEventListener('click', () => {
-      logger.exportLogs();
-      alert('Logs exported to file');
-    });
-
-    document.getElementById('btn-clear-logs')?.addEventListener('click', () => {
-      if (confirm('Clear all logs?')) {
-        logger.clearLogs();
-        this.showLogsView();
-      }
-    });
+    this.container.querySelector<HTMLButtonElement>('[data-action="back"]')?.focus();
   }
 
-  // ==================== 辅助方法 ====================
-
   private renderCategoryOptions(categories: Category[], selectedId: string, prefix = ''): string {
-    return categories.map(cat => {
-      const selected = cat.id === selectedId ? 'selected' : '';
-      const options = [`<option value="${cat.id}" ${selected}>${prefix}${cat.name}</option>`];
-
-      if (cat.subcategories) {
-        options.push(this.renderCategoryOptions(cat.subcategories, selectedId, prefix + '  '));
-      }
-
-      return options.join('');
+    return categories.map(category => {
+      const selected = category.id === selectedId ? ' selected' : '';
+      return `<option value="${escapeHTML(category.id)}"${selected}>${escapeHTML(prefix + category.name)}</option>${
+        this.renderCategoryOptions(category.subcategories || [], selectedId, `${prefix}  `)
+      }`;
     }).join('');
   }
 
+  private firstCategoryId(categories: Category[]): string | null {
+    for (const category of categories) {
+      if (category.snippets || !category.subcategories?.length) return category.id;
+      const nested = this.firstCategoryId(category.subcategories);
+      if (nested) return nested;
+    }
+    return null;
+  }
+
   private findSnippetCategoryId(snippetId: string): string | null {
-    const categories = snippetManager.getCategories();
-
-    const findInCategories = (cats: Category[]): string | null => {
-      for (const cat of cats) {
-        if (cat.snippets?.some(s => s.id === snippetId)) {
-          return cat.id;
-        }
-
-        if (cat.subcategories) {
-          const found = findInCategories(cat.subcategories);
-          if (found) return found;
-        }
+    const visit = (categories: Category[]): string | null => {
+      for (const category of categories) {
+        if (category.snippets?.some(snippet => snippet.id === snippetId)) return category.id;
+        const nested = visit(category.subcategories || []);
+        if (nested) return nested;
       }
       return null;
     };
-
-    return findInCategories(categories);
+    return visit(snippetManager.getCategories());
   }
+
+  private returnToList(): void {
+    if (this.canDiscardForm()) this.showListView();
+  }
+
+  private canDiscardForm(): boolean {
+    return !this.isFormDirty() || confirm('Discard unsaved changes?');
+  }
+
+  private captureFormBaseline(): void {
+    this.formBaseline = this.serializeCurrentForm();
+  }
+
+  private isFormDirty(): boolean {
+    return this.currentView.startsWith('edit-') && this.serializeCurrentForm() !== this.formBaseline;
+  }
+
+  private serializeCurrentForm(): string {
+    const fields = Array.from(this.container?.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+      'input:not([type="file"]), textarea, select'
+    ) || []);
+    return JSON.stringify(fields.map(field => [field.id, field.value]));
+  }
+
+  private valueOf(id: string): string {
+    return (this.container?.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(`#${id}`)?.value) || '';
+  }
+
+  private clearFieldError(id: string): void {
+    this.container?.querySelector<HTMLElement>(`[data-error-for="${id}"]`)?.replaceChildren();
+    this.container?.querySelector<HTMLElement>(`#${id}`)?.removeAttribute('aria-invalid');
+  }
+
+  private clearAllFieldErrors(): void {
+    this.container?.querySelectorAll<HTMLElement>('.form-error').forEach(error => error.replaceChildren());
+    this.container?.querySelectorAll<HTMLElement>('[aria-invalid="true"]').forEach(field => field.removeAttribute('aria-invalid'));
+  }
+
+  private showFieldError(id: string, message: string): void {
+    const error = this.container?.querySelector<HTMLElement>(`[data-error-for="${id}"]`);
+    const field = this.container?.querySelector<HTMLElement>(`#${id}`);
+    if (error) error.textContent = message;
+    field?.setAttribute('aria-invalid', 'true');
+    field?.focus();
+  }
+
+  private showPanelMessage(message: string, tone: MessageTone): void {
+    if (!this.container) return;
+    this.container.querySelector('.panel-message')?.remove();
+    const element = document.createElement('div');
+    element.className = `panel-message ${tone}`;
+    element.setAttribute('role', 'status');
+    element.textContent = message;
+    this.container.prepend(element);
+  }
+
+  private setSaving(button: HTMLButtonElement, saving: boolean, normalLabel: string): void {
+    this.isSaving = saving;
+    button.disabled = saving;
+    button.textContent = saving ? 'Saving...' : normalLabel;
+  }
+
+  private trapFocus(event: KeyboardEvent): void {
+    const controls = Array.from(this.overlay?.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex="0"]'
+    ) || []).filter(control => !control.hidden);
+    if (controls.length === 0) return;
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  private setupDragging(): void {
+    const modal = this.overlay?.querySelector<HTMLElement>('.snippet-manager-modal');
+    const header = this.overlay?.querySelector<HTMLElement>('.snippet-manager-header');
+    if (!modal || !header || window.matchMedia?.('(max-width: 700px)').matches) return;
+
+    this.centerModal();
+    this.dragAbortController = new AbortController();
+    const signal = this.dragAbortController.signal;
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let initialLeft = 0;
+    let initialTop = 0;
+
+    header.addEventListener('mousedown', event => {
+      if ((event.target as HTMLElement).closest('button')) return;
+      const rect = modal.getBoundingClientRect();
+      dragging = true;
+      startX = event.clientX;
+      startY = event.clientY;
+      initialLeft = rect.left;
+      initialTop = rect.top;
+      document.body.style.cursor = 'grabbing';
+      event.preventDefault();
+    }, { signal });
+    document.addEventListener('mousemove', event => {
+      if (!dragging) return;
+      modal.style.left = `${initialLeft + event.clientX - startX}px`;
+      modal.style.top = `${initialTop + event.clientY - startY}px`;
+      this.clampModalToViewport();
+    }, { signal });
+    document.addEventListener('mouseup', () => {
+      dragging = false;
+      document.body.style.cursor = '';
+    }, { signal });
+  }
+
+  private centerModal(): void {
+    const modal = this.overlay?.querySelector<HTMLElement>('.snippet-manager-modal');
+    if (!modal || !this.overlay) return;
+    const rect = modal.getBoundingClientRect();
+    const overlayRect = this.overlay.getBoundingClientRect();
+    modal.style.left = `${Math.max(0, (overlayRect.width - rect.width) / 2)}px`;
+    modal.style.top = `${Math.max(0, (overlayRect.height - rect.height) / 2)}px`;
+    modal.style.transform = 'none';
+    modal.style.margin = '0';
+  }
+
+  private clampModalToViewport = (): void => {
+    const modal = this.overlay?.querySelector<HTMLElement>('.snippet-manager-modal');
+    if (!modal || !this.overlay || window.matchMedia?.('(max-width: 700px)').matches) return;
+    const rect = modal.getBoundingClientRect();
+    const overlayRect = this.overlay.getBoundingClientRect();
+    const left = Math.min(Math.max(rect.left - overlayRect.left, 0), Math.max(overlayRect.width - rect.width, 0));
+    const top = Math.min(Math.max(rect.top - overlayRect.top, 0), Math.max(overlayRect.height - rect.height, 0));
+    modal.style.left = `${left}px`;
+    modal.style.top = `${top}px`;
+  };
 }
 
-// 导出单例
 export const snippetManagerUI = new SnippetManagerUI();
 export default snippetManagerUI;
 
-// 全局暴露给调试（window 对象）
 if (typeof window !== 'undefined') {
   (window as any).snippetManagerUI = snippetManagerUI;
-
-  // 提供全局测试函数
-  (window as any).testSaveCategory = async (id: string, name: string, parentId?: string) => {
-    console.log('★★★ Global test: saving category ★★★');
-    const category = { id, name, icon: '🧪', description: 'Test via global function' };
-
-    try {
-      const success = await snippetManager.addCategory(category, parentId);
-      console.log('Result:', success);
-
-      if (success) {
-        console.log('✓ Saved! Check logs:');
-        const logs = logger.getRecentLogs(10);
-        logs.split('\n').forEach(line => console.log(line));
-      } else {
-        console.log('✗ Failed');
-      }
-    } catch (error) {
-      console.log('✗ Exception:', error);
-    }
-  };
-
-  console.log('✓ Snippet Manager UI loaded. Global test functions available:');
-  console.log('  - window.snippetManagerUI');
-  console.log('  - window.testSaveCategory(id, name, parentId)');
 }
