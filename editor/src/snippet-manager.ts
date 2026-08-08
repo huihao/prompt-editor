@@ -24,12 +24,19 @@ export interface SnippetData {
   categories: Category[];
 }
 
+export interface ImportResult {
+  success: boolean;
+  error?: string;
+}
+
 const STORAGE_KEY = 'prompt-editor-snippets';
 
-class SnippetManager {
+export class SnippetManager {
   private data: SnippetData | null = null;
   private snippetMap: Map<string, Snippet> = new Map();
   private categoryMap: Map<string, Category> = new Map();
+  private builtInSnippetIds: Set<string> = new Set();
+  private builtInCategoryIds: Set<string> = new Set();
   private userData: SnippetData | null = null; // User custom snippets
   private isLoaded = false;
 
@@ -58,6 +65,8 @@ class SnippetManager {
         logger.info('SnippetManager', 'Embedded default data loaded', { categoryCount: this.data?.categories?.length });
       }
 
+      this.captureBuiltInIds(this.data);
+
       // Load user custom snippets from localStorage
       this.loadUserData();
 
@@ -70,6 +79,7 @@ class SnippetManager {
     } catch (error) {
       logger.error('SnippetManager', 'Failed to load snippet data', { error: String(error) });
       this.data = { version: '1.0', categories: [] };
+      this.captureBuiltInIds(this.data);
       this.loadUserData();
       this.mergeData();
       this.buildMaps();
@@ -298,6 +308,14 @@ class SnippetManager {
     return this.snippetMap.get(id);
   }
 
+  isBuiltInCategory(id: string): boolean {
+    return this.builtInCategoryIds.has(id);
+  }
+
+  isBuiltInSnippet(id: string): boolean {
+    return this.builtInSnippetIds.has(id);
+  }
+
   // Get root level categories (for initial wheel display)
   getRootCategories(): Category[] {
     return this.data?.categories || [];
@@ -478,6 +496,8 @@ class SnippetManager {
   // Update a category
   async updateCategory(id: string, updates: Partial<Category>): Promise<boolean> {
     this.ensureLoaded();
+
+    if (this.isBuiltInCategory(id)) return false;
     
     const category = this.categoryMap.get(id);
     if (!category) {
@@ -503,6 +523,8 @@ class SnippetManager {
   // Delete a category
   async deleteCategory(id: string): Promise<boolean> {
     this.ensureLoaded();
+
+    if (this.isBuiltInCategory(id)) return false;
     
     if (!this.userData) return false;
 
@@ -535,17 +557,8 @@ class SnippetManager {
     }
 
     // Find category in user data or add it
-    let userCategory = this.findCategoryInUserData(categoryId);
-    if (!userCategory) {
-      // Clone category structure to user data
-      const clonedCategory = this.cloneCategoryStructure(categoryId);
-      if (!clonedCategory) {
-        console.error(`Failed to clone category ${categoryId}`);
-        return false;
-      }
-      userCategory = clonedCategory;
-      this.addCategoryToUserData(userCategory);
-    }
+    const userCategory = this.ensureCategoryInUserData(categoryId);
+    if (!userCategory) return false;
 
     userCategory.snippets = userCategory.snippets || [];
     userCategory.snippets.push(snippet);
@@ -556,33 +569,23 @@ class SnippetManager {
   }
 
   // Update a snippet
-  async updateSnippet(id: string, updates: Partial<Snippet>): Promise<boolean> {
+  async updateSnippet(id: string, updates: Partial<Snippet>, destinationCategoryId?: string): Promise<boolean> {
     this.ensureLoaded();
-    
-    const snippet = this.snippetMap.get(id);
-    if (!snippet) {
-      console.error(`Snippet ${id} not found`);
-      return false;
-    }
 
-    // Find snippet in user data
-    const result = this.findSnippetInUserData(id);
-    if (result) {
-      Object.assign(result.snippet, updates);
-    } else {
-      // Snippet from built-in data, need to clone it and its category
-      const categoryId = this.findSnippetCategoryId(id);
-      if (categoryId) {
-        const userCategory = this.cloneCategoryStructure(categoryId);
-        if (userCategory) {
-          const targetSnippet = userCategory.snippets?.find(s => s.id === id);
-          if (targetSnippet) {
-            Object.assign(targetSnippet, updates);
-          }
-          this.addCategoryToUserData(userCategory);
-        }
-      }
-    }
+    if (this.isBuiltInSnippet(id)) return false;
+
+    const source = this.findSnippetInUserData(id);
+    if (!source) return false;
+
+    const destinationId = destinationCategoryId || source.category.id;
+    const destination = this.ensureCategoryInUserData(destinationId);
+    if (!destination) return false;
+    if (destination !== source.category && destination.snippets?.some(item => item.id === id)) return false;
+
+    const updated: Snippet = { ...source.snippet, ...updates, id };
+    source.category.snippets = source.category.snippets?.filter(item => item.id !== id);
+    destination.snippets = destination.snippets || [];
+    destination.snippets.push(updated);
 
     this.saveUserData();
     await this.reloadData();
@@ -592,6 +595,8 @@ class SnippetManager {
   // Delete a snippet
   async deleteSnippet(id: string): Promise<boolean> {
     this.ensureLoaded();
+
+    if (this.isBuiltInSnippet(id)) return false;
     
     if (!this.userData) return false;
 
@@ -609,28 +614,32 @@ class SnippetManager {
   }
 
   // Import snippets from JSON
-  async importData(json: string): Promise<boolean> {
+  async importData(json: string): Promise<ImportResult> {
     try {
-      const imported: SnippetData = JSON.parse(json);
-      if (imported.categories) {
-        this.userData = imported;
-        this.saveUserData();
-        await this.reloadData();
-        return true;
-      }
-      return false;
+      const imported: unknown = JSON.parse(json);
+      const validation = this.validateImport(imported);
+      if (!validation.success) return validation;
+
+      this.userData = imported as SnippetData;
+      this.saveUserData();
+      await this.reloadData();
+      return { success: true };
     } catch (error) {
-      console.error('Failed to import snippets:', error);
-      return false;
+      logger.warn('SnippetManager', 'Failed to import snippets', { error: String(error) });
+      return { success: false, error: 'The selected file is not valid JSON.' };
     }
   }
 
   // Reset to default (clear user data)
-  resetToDefault(): void {
+  async resetToDefault(): Promise<void> {
     this.userData = { version: '1.0', categories: [] };
     localStorage.removeItem(STORAGE_KEY);
     this.isLoaded = false;
-    this.loadData();
+    await this.loadData();
+  }
+
+  async reload(): Promise<void> {
+    await this.reloadData();
   }
 
   // ==================== Helper Methods ====================
@@ -645,6 +654,67 @@ class SnippetManager {
     this.isLoaded = false;
     this.data = null;
     await this.loadData();
+  }
+
+  private captureBuiltInIds(data: SnippetData): void {
+    this.builtInCategoryIds.clear();
+    this.builtInSnippetIds.clear();
+
+    const visit = (category: Category): void => {
+      this.builtInCategoryIds.add(category.id);
+      category.snippets?.forEach(snippet => this.builtInSnippetIds.add(snippet.id));
+      category.subcategories?.forEach(visit);
+    };
+
+    data.categories.forEach(visit);
+  }
+
+  private validateImport(value: unknown): ImportResult {
+    if (!value || typeof value !== 'object') {
+      return { success: false, error: 'Import must be an object.' };
+    }
+
+    const candidate = value as Partial<SnippetData>;
+    if (typeof candidate.version !== 'string' || !Array.isArray(candidate.categories)) {
+      return { success: false, error: 'Import requires a version and categories array.' };
+    }
+
+    const categoryIds = new Set<string>();
+    const snippetIds = new Set<string>();
+    const visit = (category: unknown): string | null => {
+      if (!category || typeof category !== 'object') return 'Every category must be an object.';
+      const item = category as Category;
+      if (typeof item.id !== 'string' || !item.id.trim()) return 'Every category id must be a non-empty string.';
+      if (typeof item.name !== 'string' || !item.name.trim()) return `Category ${item.id} requires a name.`;
+      if (typeof item.icon !== 'string' || !item.icon.trim()) return `Category ${item.id} requires an icon.`;
+      if (item.description !== undefined && typeof item.description !== 'string') return `Category ${item.id} has an invalid description.`;
+      if (categoryIds.has(item.id)) return `Duplicate category id: ${item.id}`;
+      categoryIds.add(item.id);
+
+      if (item.snippets !== undefined && !Array.isArray(item.snippets)) return `Category ${item.id} has invalid snippets.`;
+      for (const snippet of item.snippets || []) {
+        if (!snippet || typeof snippet !== 'object') return `Category ${item.id} has an invalid snippet.`;
+        if (typeof snippet.id !== 'string' || !snippet.id.trim()) return 'Every snippet id must be a non-empty string.';
+        if (typeof snippet.name !== 'string' || !snippet.name.trim()) return `Snippet ${snippet.id} requires a name.`;
+        if (typeof snippet.content !== 'string' || !snippet.content.trim()) return `Snippet ${snippet.id} requires content.`;
+        if (typeof snippet.description !== 'string') return `Snippet ${snippet.id} requires a description.`;
+        if (snippetIds.has(snippet.id)) return `Duplicate snippet id: ${snippet.id}`;
+        snippetIds.add(snippet.id);
+      }
+
+      if (item.subcategories !== undefined && !Array.isArray(item.subcategories)) return `Category ${item.id} has invalid subcategories.`;
+      for (const child of item.subcategories || []) {
+        const error = visit(child);
+        if (error) return error;
+      }
+      return null;
+    };
+
+    for (const category of candidate.categories) {
+      const error = visit(category);
+      if (error) return { success: false, error };
+    }
+    return { success: true };
   }
 
   private findCategoryInUserData(id: string): Category | undefined {
@@ -710,6 +780,49 @@ class SnippetManager {
     } else {
       this.userData.categories.push(category);
     }
+  }
+
+  private ensureCategoryInUserData(categoryId: string): Category | null {
+    const existing = this.findCategoryInUserData(categoryId);
+    if (existing) return existing;
+    if (!this.data || !this.userData) return null;
+
+    const path = this.getCategoryPath(categoryId);
+    if (path.length === 0) return null;
+
+    const rootId = path[0].id;
+    if (!this.findCategoryInUserData(rootId)) {
+      const rootClone = JSON.parse(JSON.stringify(path[0])) as Category;
+      this.addCategoryToUserData(rootClone);
+    }
+
+    let userCategory = this.findCategoryInUserData(rootId);
+    for (let index = 1; index < path.length && userCategory; index += 1) {
+      const nextId = path[index].id;
+      let child = userCategory.subcategories?.find(category => category.id === nextId);
+      if (!child) {
+        child = JSON.parse(JSON.stringify(path[index])) as Category;
+        userCategory.subcategories = userCategory.subcategories || [];
+        userCategory.subcategories.push(child);
+      }
+      userCategory = child;
+    }
+
+    return userCategory?.id === categoryId ? userCategory : null;
+  }
+
+  private getCategoryPath(categoryId: string): Category[] {
+    if (!this.data) return [];
+    const visit = (categories: Category[], path: Category[]): Category[] => {
+      for (const category of categories) {
+        const nextPath = [...path, category];
+        if (category.id === categoryId) return nextPath;
+        const nested = visit(category.subcategories || [], nextPath);
+        if (nested.length > 0) return nested;
+      }
+      return [];
+    };
+    return visit(this.data.categories, []);
   }
 
   private cloneCategoryStructure(categoryId: string): Category | null {
