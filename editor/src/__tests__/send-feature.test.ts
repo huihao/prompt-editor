@@ -11,6 +11,7 @@ describe('send feature visibility', () => {
       <button id="btn-send"></button>
       <select id="target-select"></select>
       <button id="btn-refresh-agents"></button>
+      <button id="btn-paste-previous"></button>
       <div id="confirm-dialog"></div>
     `;
 
@@ -19,6 +20,7 @@ describe('send feature visibility', () => {
     expect((document.querySelector('#btn-send') as HTMLElement).hidden).toBe(true);
     expect((document.querySelector('#target-select') as HTMLElement).hidden).toBe(true);
     expect((document.querySelector('#btn-refresh-agents') as HTMLElement).hidden).toBe(true);
+    expect((document.querySelector('#btn-paste-previous') as HTMLElement).hidden).toBe(false);
     expect((document.querySelector('#confirm-dialog') as HTMLElement).hidden).toBe(true);
   });
 });

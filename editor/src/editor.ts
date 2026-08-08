@@ -289,7 +289,7 @@ const state = EditorState.create({
               changes: { from, insert: snippet.content }
             });
             showToast(`Inserted: ${snippet.name}`);
-          });
+          }, document.getElementById('btn-snippets'));
           return true;
         },
       },
@@ -527,7 +527,7 @@ toolbarSelect?.addEventListener('change', (e) => {
 });
 
 // Toolbar buttons
-document.getElementById('btn-send')!.addEventListener('click', () => {
+document.getElementById('btn-send')?.addEventListener('click', () => {
   const content = bridge.getContent();
   if (!content.trim()) return;
   showConfirmDialog(content);
@@ -697,13 +697,13 @@ document.getElementById('btn-snippets')!.addEventListener('click', () => {
       changes: { from, insert: snippet.content }
     });
     showToast(`Inserted: ${snippet.name}`);
-  });
+  }, document.getElementById('btn-snippets'));
 });
 
-// Snippet Manager - Shift+Click on snippets button
+// Snippet Manager - right-click on snippets button
 document.getElementById('btn-snippets')!.addEventListener('contextmenu', (e) => {
   e.preventDefault();
-  snippetManagerUI.open();
+  snippetManagerUI.open(document.getElementById('btn-snippets'));
 });
 
 // Template button
