@@ -1,5 +1,6 @@
 import { BrowserNativeClient } from './browser-client';
 import type { NativeClient } from './native-client';
+import { TauriNativeClient } from './tauri-client';
 import { WKWebViewNativeClient } from './wkwebview-client';
 
 export interface NativeRuntime {
@@ -47,6 +48,10 @@ export function createNativeClient(
       setTimeout: runtime.setTimeout,
       clearTimeout: runtime.clearTimeout,
     });
+  }
+
+  if (runtime.tauriInvoke) {
+    return new TauriNativeClient(runtime.tauriInvoke);
   }
 
   return new BrowserNativeClient(runtime.clipboardWrite);

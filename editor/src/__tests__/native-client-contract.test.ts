@@ -7,6 +7,7 @@ import {
 import { BrowserNativeClient } from '../platform/browser-client';
 import { createNativeClient } from '../platform/create-native-client';
 import { WKWebViewNativeClient } from '../platform/wkwebview-client';
+import { TauriNativeClient } from '../platform/tauri-client';
 
 describe('NativeClient contract', () => {
   it('exposes stable capabilities and typed unsupported errors', () => {
@@ -195,5 +196,63 @@ describe('WKWebViewNativeClient', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('TauriNativeClient', () => {
+  it('is selected when WKWebView is absent', () => {
+    const client = createNativeClient({
+      tauriInvoke: vi.fn(),
+      clipboardWrite: vi.fn(),
+    });
+
+    expect(client.platform).toBe('windows');
+  });
+
+  it('preserves the existing Tauri command payloads', async () => {
+    const invoke = vi.fn().mockResolvedValue(undefined);
+    const client = new TauriNativeClient(invoke);
+
+    await client.send({ content: 'prompt', target: 'default' });
+    await client.writeClipboard('copy me');
+    await client.hideWindow();
+
+    expect(invoke.mock.calls).toEqual([
+      [
+        'handle_editor_message',
+        { message: { action: 'send', content: 'prompt', target: 'default' } },
+      ],
+      [
+        'handle_editor_message',
+        { message: { action: 'copy', content: 'copy me' } },
+      ],
+      ['handle_editor_message', { message: { action: 'hide' } }],
+    ]);
+  });
+
+  it('rejects capabilities that the Windows backend does not implement', async () => {
+    const client = new TauriNativeClient(vi.fn());
+
+    await expect(client.pickDirectory()).rejects.toMatchObject({ code: 'unsupported' });
+    await expect(client.readFile('/file')).rejects.toMatchObject({ code: 'unsupported' });
+    await expect(client.listRunningAgents()).rejects.toMatchObject({ code: 'unsupported' });
+    await expect(client.pasteToPrevious('text')).rejects.toMatchObject({ code: 'unsupported' });
+    await expect(client.openAccessibilitySettings()).rejects.toMatchObject({ code: 'unsupported' });
+    await expect(client.restartApp()).rejects.toMatchObject({ code: 'unsupported' });
+  });
+
+  it('wraps invocation failures without logging message content', async () => {
+    const invoke = vi.fn().mockRejectedValue(new Error('IPC unavailable'));
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const client = new TauriNativeClient(invoke);
+
+    await expect(
+      client.send({ content: 'private prompt', target: 'default' }),
+    ).rejects.toMatchObject({
+      code: 'native-failure',
+      capability: 'content.send',
+    });
+    expect(consoleSpy).not.toHaveBeenCalled();
+    consoleSpy.mockRestore();
   });
 });
