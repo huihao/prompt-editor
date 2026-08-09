@@ -11,19 +11,14 @@ import {
 import { workspaceManager, Workspace } from './workspace-manager';
 import { terminalContext, TerminalContextData, ShellIntegrationStatus } from './terminal-context';
 import { historyStore, HistoryItem } from './history-store';
+import { createNativeClient } from './platform/create-native-client';
+import {
+  NativeClientError,
+  type DetectedAgent,
+  type NativeClient,
+} from './platform/native-client';
 
-declare global {
-  interface Window {
-    promptEditorNativeResult?: (requestId: string, success: boolean, message: string) => void;
-    webkit?: {
-      messageHandlers?: {
-        promptEditor?: {
-          postMessage: (msg: unknown) => void;
-        };
-      };
-    };
-  }
-}
+export type { DetectedAgent } from './platform/native-client';
 
 // Target types for sending (can be agent ID like 'claude-12345')
 type SendTarget = 'default' | 'claude' | 'codex' | 'kimi' | 'cursor' | 'copy' | string;
@@ -44,17 +39,6 @@ const AVAILABLE_TARGETS: TargetConfig[] = [
   { id: 'cursor', name: 'Cursor', shortcut: '⌘⇧4' },
   { id: 'copy', name: 'Copy Only', shortcut: '⌘⇧C' },
 ];
-
-// Detected running agent interface
-export interface DetectedAgent {
-  id: string;
-  name: string;
-  type: 'claude' | 'kimi' | 'codex' | 'cursor' | 'warp' | 'unknown';
-  pid: number;
-  terminalApp?: string;
-  workingDirectory?: string;
-  windowTitle?: string;
-}
 
 const TARGET_STORAGE_KEY = 'promptEditor:defaultTarget';
 
@@ -142,30 +126,19 @@ interface NativeBridge {
 }
 
 let editorView: EditorView | null = null;
-let nativeRequestSequence = 0;
-const nativeResultHandlers = new Map<string, (result: { success: boolean; message: string }) => void>();
+let selectedNativeClient: NativeClient | null = null;
 
-function nextNativeRequestId(): string {
-  nativeRequestSequence += 1;
-  return `native-${Date.now()}-${nativeRequestSequence}`;
+function nativeClient(): NativeClient {
+  selectedNativeClient ??= createNativeClient();
+  return selectedNativeClient;
 }
 
-function resolveNativeResult(requestId: string, success: boolean, message: string): void {
-  const resolve = nativeResultHandlers.get(requestId);
-  if (!resolve) return;
-  nativeResultHandlers.delete(requestId);
-  resolve({ success, message });
-}
-
-function postToNative(action: string, data?: Record<string, unknown>) {
-  const message = { action, ...data };
-  // macOS WKWebView
-  if (window.webkit?.messageHandlers?.promptEditor) {
-    window.webkit.messageHandlers.promptEditor.postMessage(message);
-    return;
+function logNativeError(context: string, error: unknown): void {
+  if (error instanceof NativeClientError) {
+    console.error(`${context}: [${error.code}] ${error.message}`);
+  } else {
+    console.error(`${context}: Native operation failed`);
   }
-  // Fallback: log to console
-  console.log('[bridge]', message);
 }
 
 export const bridge: NativeBridge = {
@@ -177,8 +150,6 @@ export const bridge: NativeBridge = {
       setContent: (text: string) => bridge.setContent(text),
       focus: () => view.focus(),
     };
-    window.promptEditorNativeResult = resolveNativeResult;
-    
     // Subscribe to terminal context updates and forward to bridge callback
     terminalContext.subscribe((ctx) => {
       if (bridge.onTerminalContextUpdate) {
@@ -238,15 +209,15 @@ export const bridge: NativeBridge = {
     
     if (effectiveTarget === 'copy') {
       // Copy mode - just copy to clipboard without typing
-      bridge.copyToClipboard(resolvedContent);
+      await bridge.copyToClipboard(resolvedContent);
     } else {
       // Send with agent info for precise targeting
-      postToNative('send', { 
-        content: resolvedContent, 
+      await nativeClient().send({
+        content: resolvedContent,
         target: agentType,
         agentId: agentInfo?.id,
         pid: agentInfo?.pid,
-        terminalApp: agentInfo?.terminalApp
+        terminalApp: agentInfo?.terminalApp,
       });
     }
   },
@@ -301,19 +272,12 @@ export const bridge: NativeBridge = {
   async copyToClipboard(content: string): Promise<boolean> {
     if (!content.trim()) return false;
     const resolvedContent = prepareContentForSend(content);
-    
+
     try {
-      // Try native bridge first (macOS app)
-      if (window.webkit?.messageHandlers?.promptEditor) {
-        postToNative('copy', { content: resolvedContent });
-        return true;
-      } else {
-        // Fallback to Web Clipboard API
-        await navigator.clipboard.writeText(resolvedContent);
-        return true;
-      }
-    } catch (err) {
-      console.error('Failed to copy:', err);
+      await nativeClient().writeClipboard(resolvedContent);
+      return true;
+    } catch (error) {
+      logNativeError('Failed to copy', error);
       return false;
     }
   },
@@ -323,28 +287,32 @@ export const bridge: NativeBridge = {
     if (!content.trim()) return { success: false, message: 'Nothing to paste' };
 
     const resolvedContent = prepareContentForSend(content);
-    if (!window.webkit?.messageHandlers?.promptEditor) {
-      return { success: false, message: 'Paste to last position is only available on macOS' };
+    try {
+      return await nativeClient().pasteToPrevious(resolvedContent);
+    } catch (error) {
+      if (error instanceof NativeClientError) {
+        if (error.code === 'unsupported') {
+          return { success: false, message: 'Paste to last position is only available on macOS' };
+        }
+        if (error.code === 'timeout') {
+          return { success: false, message: 'No response from macOS paste service' };
+        }
+      }
+      logNativeError('Paste to last position failed', error);
+      return { success: false, message: 'Paste to last position failed' };
     }
-
-    const requestId = nextNativeRequestId();
-    return new Promise((resolve) => {
-      nativeResultHandlers.set(requestId, resolve);
-      postToNative('pasteToPrevious', { content: resolvedContent, callback: requestId });
-      window.setTimeout(() => {
-        if (!nativeResultHandlers.has(requestId)) return;
-        nativeResultHandlers.delete(requestId);
-        resolve({ success: false, message: 'No response from macOS paste service' });
-      }, 5000);
-    });
   },
 
   openAccessibilitySettings() {
-    postToNative('openAccessibilitySettings');
+    void nativeClient().openAccessibilitySettings().catch((error) => {
+      logNativeError('Failed to open accessibility settings', error);
+    });
   },
 
   restartApp() {
-    postToNative('restartApp');
+    void nativeClient().restartApp().catch((error) => {
+      logNativeError('Failed to restart app', error);
+    });
   },
 
   getHistory(): HistoryItem[] {
@@ -392,7 +360,9 @@ export const bridge: NativeBridge = {
   },
 
   hide() {
-    postToNative('hide');
+    void nativeClient().hideWindow().catch((error) => {
+      logNativeError('Failed to hide window', error);
+    });
   },
 
   getAvailableTargets() {
@@ -419,35 +389,14 @@ export const bridge: NativeBridge = {
   },
 
   async showFolderPicker(): Promise<string | null> {
-    return new Promise((resolve) => {
-      const callbackName = `folderCallback_${Date.now()}`;
-      (window as any)[callbackName] = (result: string | null) => {
-        delete (window as any)[callbackName];
-        resolve(result);
-      };
-      
-      if (window.webkit?.messageHandlers?.promptEditor) {
-        window.webkit.messageHandlers.promptEditor.postMessage({
-          action: 'showFolderPicker',
-          callback: callbackName,
-        });
-      } else {
-        // Fallback
-        const mockPaths = [
-          '/Users/user/project',
-          '/home/user/project',
-          'C:\\Users\\user\\project',
-        ];
-        resolve(mockPaths[Math.floor(Math.random() * mockPaths.length)]);
+    try {
+      return await nativeClient().pickDirectory();
+    } catch (error) {
+      if (!(error instanceof NativeClientError && error.code === 'unsupported')) {
+        logNativeError('Folder picker failed', error);
       }
-      
-      setTimeout(() => {
-        if ((window as any)[callbackName]) {
-          delete (window as any)[callbackName];
-          resolve(null);
-        }
-      }, 60000);
-    });
+      return null;
+    }
   },
 
   getFileReferences() {
@@ -459,35 +408,14 @@ export const bridge: NativeBridge = {
    * 读取文件内容
    */
   async readFile(path: string): Promise<string | null> {
-    return new Promise((resolve) => {
-      const callbackName = `readFileCallback_${Date.now()}`;
-      (window as any)[callbackName] = (result: string | null, error?: string) => {
-        delete (window as any)[callbackName];
-        if (error) {
-          console.error('Read file error:', error);
-          resolve(null);
-        } else {
-          resolve(result);
-        }
-      };
-      
-      if (window.webkit?.messageHandlers?.promptEditor) {
-        window.webkit.messageHandlers.promptEditor.postMessage({
-          action: 'readFile',
-          path: path,
-          callback: callbackName,
-        });
-      } else {
-        resolve(null);
+    try {
+      return await nativeClient().readFile(path);
+    } catch (error) {
+      if (!(error instanceof NativeClientError && error.code === 'unsupported')) {
+        logNativeError('Read file failed', error);
       }
-      
-      setTimeout(() => {
-        if ((window as any)[callbackName]) {
-          delete (window as any)[callbackName];
-          resolve(null);
-        }
-      }, 5000);
-    });
+      return null;
+    }
   },
 
   // Workspace methods
@@ -512,60 +440,14 @@ export const bridge: NativeBridge = {
   },
 
   async getRunningAgents(): Promise<DetectedAgent[]> {
-    console.log('[bridge] getRunningAgents called');
-    return new Promise((resolve) => {
-      const isNative = typeof window !== 'undefined' && 
-        (window.webkit?.messageHandlers?.promptEditor || 
-         (window as any).__TAURI__);
-
-      console.log('[bridge] isNative:', isNative);
-
-      if (!isNative) {
-        console.log('[bridge] Not in native mode, returning empty array');
-        resolve([]);
-        return;
+    try {
+      return await nativeClient().listRunningAgents();
+    } catch (error) {
+      if (!(error instanceof NativeClientError && error.code === 'unsupported')) {
+        logNativeError('Get running agents failed', error);
       }
-
-      const callbackName = `agentsCallback_${Date.now()}`;
-      console.log('[bridge] Creating callback:', callbackName);
-      
-      (window as any)[callbackName] = (result: string | null, error?: string) => {
-        console.log('[bridge] Callback invoked:', callbackName, 'error:', error, 'result length:', result?.length);
-        delete (window as any)[callbackName];
-        if (error || !result) {
-          console.error('Get running agents error:', error);
-          resolve([]);
-        } else {
-          try {
-            const agents: DetectedAgent[] = JSON.parse(result);
-            console.log('[bridge] Parsed agents:', agents.length, agents);
-            resolve(agents);
-          } catch (e) {
-            console.error('Failed to parse agents:', e);
-            resolve([]);
-          }
-        }
-      };
-
-      if (window.webkit?.messageHandlers?.promptEditor) {
-        console.log('[bridge] Sending postMessage to promptEditor');
-        window.webkit.messageHandlers.promptEditor.postMessage({
-          action: 'getRunningAgents',
-          callback: callbackName,
-        });
-      } else if ((window as any).__TAURI__) {
-        console.log('[bridge] Tauri mode not implemented');
-        resolve([]);
-      }
-
-      setTimeout(() => {
-        if ((window as any)[callbackName]) {
-          console.log('[bridge] Timeout waiting for agents response');
-          delete (window as any)[callbackName];
-          resolve([]);
-        }
-      }, 5000);
-    });
+      return [];
+    }
   },
 
   onAgentsUpdated: null as ((agents: DetectedAgent[]) => void) | null,

@@ -13,7 +13,13 @@ describe('Bridge', () => {
   let bridge: typeof import('../bridge').bridge;
 
   beforeEach(async () => {
-    // Re-import to reset module state
+    delete (window as any).webkit;
+    delete (window as any).__TAURI__;
+    delete (window as any).promptEditorNativeResult;
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: undefined,
+    });
     vi.resetModules();
     const mod = await import('../bridge');
     bridge = mod.bridge;
@@ -108,41 +114,28 @@ describe('Bridge', () => {
 
   describe('native messaging', () => {
     let view: EditorView;
-    let consoleSpy: ReturnType<typeof vi.spyOn>;
 
     beforeEach(() => {
       view = createMockView('');
       bridge.init(view);
-      consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     });
 
-    it('send logs to console when no native bridge', async () => {
+    it('reports unsupported send when no native bridge is available', async () => {
       bridge.setContent('test prompt');
-      await bridge.send();
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[bridge]',
-        expect.objectContaining({ action: 'send', content: 'test prompt' })
-      );
+      await expect(bridge.send()).rejects.toMatchObject({
+        code: 'unsupported',
+        capability: 'content.send',
+      });
     });
 
     it('send does nothing for empty content', async () => {
       bridge.setContent('');
       await bridge.send();
-      expect(consoleSpy).not.toHaveBeenCalled();
     });
 
     it('send does nothing for whitespace-only content', async () => {
       bridge.setContent('   \n\t  ');
       await bridge.send();
-      expect(consoleSpy).not.toHaveBeenCalled();
-    });
-
-    it('hide posts hide action', () => {
-      bridge.hide();
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[bridge]',
-        expect.objectContaining({ action: 'hide' })
-      );
     });
 
     it('showHistory shows history panel', () => {
@@ -172,12 +165,62 @@ describe('Bridge', () => {
       bridge.setContent('native test');
       await bridge.send();
 
-      expect(mockPostMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ action: 'send', content: 'native test' })
-      );
-      expect(consoleSpy).not.toHaveBeenCalled();
+      expect(mockPostMessage).toHaveBeenCalledWith({
+        action: 'send',
+        content: 'native test',
+        target: 'default',
+      });
+
+      await expect(bridge.copyToClipboard('copy me')).resolves.toBe(true);
+      expect(mockPostMessage).toHaveBeenLastCalledWith({
+        action: 'copy',
+        content: 'copy me',
+      });
 
       delete (window as any).webkit;
+    });
+
+    it('routes supported operations through the Tauri command', async () => {
+      const invoke = vi.fn().mockResolvedValue(undefined);
+      (window as any).__TAURI__ = { invoke };
+
+      bridge.setContent('windows prompt');
+      await bridge.send();
+      await bridge.copyToClipboard('copy me');
+      bridge.hide();
+      await Promise.resolve();
+
+      expect(invoke.mock.calls).toEqual([
+        [
+          'handle_editor_message',
+          {
+            message: {
+              action: 'send',
+              content: 'windows prompt',
+              target: 'default',
+            },
+          },
+        ],
+        [
+          'handle_editor_message',
+          { message: { action: 'copy', content: 'copy me' } },
+        ],
+        ['handle_editor_message', { message: { action: 'hide' } }],
+      ]);
+    });
+
+    it('uses the browser clipboard without fabricating native results', async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText },
+      });
+
+      await expect(bridge.copyToClipboard('browser copy')).resolves.toBe(true);
+      expect(writeText).toHaveBeenCalledWith('browser copy');
+      await expect(bridge.showFolderPicker()).resolves.toBeNull();
+      await expect(bridge.readFile('/file')).resolves.toBeNull();
+      await expect(bridge.getRunningAgents()).resolves.toEqual([]);
     });
 
     it('pastes content to the previous native target when available', async () => {
@@ -205,6 +248,58 @@ describe('Bridge', () => {
       });
 
       delete (window as any).webkit;
+    });
+
+    it('translates unsupported paste to the existing facade result', async () => {
+      bridge.setContent('paste in browser');
+
+      await expect(bridge.pasteToPrevious()).resolves.toEqual({
+        success: false,
+        message: 'Paste to last position is only available on macOS',
+      });
+    });
+
+    it('translates paste timeout to the existing no-response result', async () => {
+      vi.useFakeTimers();
+      try {
+        (window as any).webkit = {
+          messageHandlers: { promptEditor: { postMessage: vi.fn() } },
+        };
+        bridge.setContent('slow paste');
+
+        const result = bridge.pasteToPrevious();
+        const expectation = expect(result).resolves.toEqual({
+          success: false,
+          message: 'No response from macOS paste service',
+        });
+        await vi.advanceTimersByTimeAsync(5000);
+        await expectation;
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('translates paste transport failures to a stable facade result', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      (window as any).webkit = {
+        messageHandlers: {
+          promptEditor: {
+            postMessage: vi.fn(() => {
+              throw new Error('Bridge unavailable');
+            }),
+          },
+        },
+      };
+      bridge.setContent('failed paste');
+
+      await expect(bridge.pasteToPrevious()).resolves.toEqual({
+        success: false,
+        message: 'Paste to last position failed',
+      });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.not.stringContaining('failed paste'),
+      );
+      consoleSpy.mockRestore();
     });
   });
 });
