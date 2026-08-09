@@ -17,9 +17,18 @@ importers:
       '@ai-sdk/openai':
         specifier: ^3.0.67
         version: 3.0.67(zod@4.4.3)
+      '@codemirror/autocomplete':
+        specifier: ^6.20.1
+        version: 6.20.1
+      '@codemirror/commands':
+        specifier: ^6.10.3
+        version: 6.10.3
       '@codemirror/lang-markdown':
         specifier: ^6.2.0
         version: 6.5.2
+      '@codemirror/language':
+        specifier: ^6.12.3
+        version: 6.12.3
       '@codemirror/language-data':
         specifier: ^6.5.0
         version: 6.5.2
@@ -29,6 +38,9 @@ importers:
       '@codemirror/view':
         specifier: ^6.26.0
         version: 6.41.1
+      '@lezer/highlight':
+        specifier: ^1.2.3
+        version: 1.2.3
       ai:
         specifier: ^6.0.193
         version: 6.0.193(zod@4.4.3)

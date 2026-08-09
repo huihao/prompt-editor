@@ -20,10 +20,14 @@
     "@ai-sdk/anthropic": "^3.0.81",
     "@ai-sdk/google": "^3.0.80",
     "@ai-sdk/openai": "^3.0.67",
+    "@codemirror/autocomplete": "^6.20.1",
+    "@codemirror/commands": "^6.10.3",
     "@codemirror/lang-markdown": "^6.2.0",
+    "@codemirror/language": "^6.12.3",
     "@codemirror/language-data": "^6.5.0",
     "@codemirror/state": "^6.4.0",
     "@codemirror/view": "^6.26.0",
+    "@lezer/highlight": "^1.2.3",
     "ai": "^6.0.193",
     "codemirror": "^6.0.0"
   }
