@@ -6,6 +6,7 @@ import {
 } from '../platform/native-client';
 import { BrowserNativeClient } from '../platform/browser-client';
 import { createNativeClient } from '../platform/create-native-client';
+import { WKWebViewNativeClient } from '../platform/wkwebview-client';
 
 describe('NativeClient contract', () => {
   it('exposes stable capabilities and typed unsupported errors', () => {
@@ -48,5 +49,151 @@ describe('BrowserNativeClient', () => {
       code: 'unavailable',
       capability: 'clipboard.write',
     });
+  });
+});
+
+describe('WKWebViewNativeClient', () => {
+  function createWKClient(postMessage = vi.fn()) {
+    const callbackHost: Record<string, unknown> = {};
+    const client = new WKWebViewNativeClient({
+      wkMessageHandler: { postMessage },
+      callbackHost,
+    });
+    return { callbackHost, client, postMessage };
+  }
+
+  it('is selected before other native runtimes', () => {
+    const client = createNativeClient({
+      wkMessageHandler: { postMessage: vi.fn() },
+      tauriInvoke: vi.fn(),
+      clipboardWrite: vi.fn(),
+      callbackHost: {},
+    });
+
+    expect(client.platform).toBe('macos');
+  });
+
+  it('preserves the existing fire-and-forget action payloads', async () => {
+    const { client, postMessage } = createWKClient();
+
+    await client.send({
+      content: 'prompt',
+      target: 'codex',
+      agentId: 'codex-42',
+      pid: 42,
+      terminalApp: 'Terminal',
+    });
+    await client.writeClipboard('copy me');
+    await client.hideWindow();
+    await client.openAccessibilitySettings();
+    await client.restartApp();
+
+    expect(postMessage.mock.calls.map(([message]) => message)).toEqual([
+      {
+        action: 'send',
+        content: 'prompt',
+        target: 'codex',
+        agentId: 'codex-42',
+        pid: 42,
+        terminalApp: 'Terminal',
+      },
+      { action: 'copy', content: 'copy me' },
+      { action: 'hide' },
+      { action: 'openAccessibilitySettings' },
+      { action: 'restartApp' },
+    ]);
+  });
+
+  it('routes paste results through the shared native result callback', async () => {
+    const { callbackHost, client, postMessage } = createWKClient();
+
+    const resultPromise = client.pasteToPrevious('paste me');
+    const message = postMessage.mock.calls[0][0];
+    expect(message).toEqual({
+      action: 'pasteToPrevious',
+      content: 'paste me',
+      callback: expect.any(String),
+    });
+
+    const resolveResult = callbackHost.promptEditorNativeResult as (
+      requestId: string,
+      success: boolean,
+      resultMessage: string,
+    ) => void;
+    resolveResult(message.callback, true, 'Pasted');
+
+    await expect(resultPromise).resolves.toEqual({ success: true, message: 'Pasted' });
+  });
+
+  it('decodes callback operations and deletes callback globals', async () => {
+    const { callbackHost, client, postMessage } = createWKClient();
+
+    const directoryPromise = client.pickDirectory();
+    const directoryMessage = postMessage.mock.calls[0][0];
+    const directoryCallback = callbackHost[directoryMessage.callback] as (
+      result: string,
+    ) => void;
+    directoryCallback('/Users/example/project');
+    await expect(directoryPromise).resolves.toBe('/Users/example/project');
+    expect(callbackHost).not.toHaveProperty(directoryMessage.callback);
+
+    const agentsPromise = client.listRunningAgents();
+    const agentsMessage = postMessage.mock.calls[1][0];
+    const agentsCallback = callbackHost[agentsMessage.callback] as (
+      result: string,
+    ) => void;
+    agentsCallback('[{"id":"codex-42","name":"Codex","type":"codex","pid":42}]');
+    await expect(agentsPromise).resolves.toEqual([
+      { id: 'codex-42', name: 'Codex', type: 'codex', pid: 42 },
+    ]);
+    expect(callbackHost).not.toHaveProperty(agentsMessage.callback);
+  });
+
+  it('turns native callback errors into typed failures and cleans up', async () => {
+    const { callbackHost, client, postMessage } = createWKClient();
+
+    const resultPromise = client.readFile('/missing');
+    const message = postMessage.mock.calls[0][0];
+    const callback = callbackHost[message.callback] as (
+      result: null,
+      error: string,
+    ) => void;
+    callback(null, 'File not found');
+
+    await expect(resultPromise).rejects.toMatchObject({
+      code: 'native-failure',
+      capability: 'file.read',
+    });
+    expect(callbackHost).not.toHaveProperty(message.callback);
+  });
+
+  it('cleans up callbacks when posting to WKWebView throws', async () => {
+    const postMessage = vi.fn(() => {
+      throw new Error('Bridge unavailable');
+    });
+    const { callbackHost, client } = createWKClient(postMessage);
+
+    await expect(client.readFile('/file')).rejects.toMatchObject({
+      code: 'native-failure',
+      capability: 'file.read',
+    });
+    expect(Object.keys(callbackHost)).toEqual(['promptEditorNativeResult']);
+  });
+
+  it('times out callback operations and deletes stale callbacks', async () => {
+    vi.useFakeTimers();
+    try {
+      const { callbackHost, client, postMessage } = createWKClient();
+      const resultPromise = client.readFile('/slow');
+      const rejection = expect(resultPromise).rejects.toMatchObject({ code: 'timeout' });
+      const message = postMessage.mock.calls[0][0];
+
+      await vi.advanceTimersByTimeAsync(5000);
+
+      await rejection;
+      expect(callbackHost).not.toHaveProperty(message.callback);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
