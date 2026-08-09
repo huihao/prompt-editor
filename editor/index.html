@@ -3222,6 +3222,11 @@
 
     /* Dark theme for snippet wheel - Enhanced center disc */
     @media (prefers-color-scheme: dark) {
+      .snippet-wheel-container {
+        --snippet-wheel-fg: #fff;
+        color: var(--snippet-wheel-fg);
+      }
+
       .snippet-wheel-close:hover {
         background: #ff5252;
         border-color: #ff5252;
@@ -3272,6 +3277,17 @@
 
       .snippet-wheel-center .center-desc {
         color: #999;
+      }
+
+      .snippet-wheel-breadcrumb,
+      .snippet-wheel-close,
+      .snippet-wheel-manage,
+      .snippet-wheel-hint,
+      .wheel-item.category,
+      .wheel-item.back,
+      .snippet-wheel-center .center-text,
+      .snippet-wheel-center .center-desc {
+        color: var(--snippet-wheel-fg);
       }
     }
 

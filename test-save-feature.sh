@@ -30,7 +30,7 @@ if [ -f "$editor_html" ]; then
         echo "  ✓ 保存功能代码已嵌入"
     else
         echo "  ✗ 保存功能代码缺失！"
-        echo "  → 需要重新构建: cd editor && npx vite build"
+        echo "  → 需要重新构建: cd editor && pnpm build"
         exit 1
     fi
 else

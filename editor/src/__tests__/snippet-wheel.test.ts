@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { snippetManager } from '../snippet-manager';
 import { getSnippetWheelRadius, hideSnippetWheel, showSnippetWheel } from '../snippet-wheel';
+import editorHTML from '../../index.html?raw';
 
 const wheelData = {
   version: '1.0',
@@ -22,6 +23,28 @@ describe('SnippetWheel keyboard interactions', () => {
   it('keeps wheel items inside a narrow viewport', () => {
     expect(getSnippetWheelRadius(390)).toBe(140);
     expect(getSnippetWheelRadius(1200)).toBe(180);
+  });
+
+  it('uses white text throughout the dark snippet wheel', () => {
+    const darkWheelStyles = editorHTML.match(
+      /\/\* Dark theme for snippet wheel - Enhanced center disc \*\/\s*@media \(prefers-color-scheme: dark\) \{([\s\S]*?)\n    \}\n\n    \/\* ={20,}/,
+    )?.[1];
+
+    const whiteTextSelectors = [
+      '.snippet-wheel-breadcrumb',
+      '.snippet-wheel-close',
+      '.snippet-wheel-manage',
+      '.snippet-wheel-hint',
+      '.wheel-item.category',
+      '.wheel-item.back',
+      '.snippet-wheel-center .center-text',
+      '.snippet-wheel-center .center-desc',
+    ];
+
+    expect(darkWheelStyles).toContain('--snippet-wheel-fg: #fff;');
+    expect(darkWheelStyles).toContain(
+      `${whiteTextSelectors.join(',\n      ')} {\n        color: var(--snippet-wheel-fg);\n      }`,
+    );
   });
 
   beforeEach(async () => {

@@ -32,10 +32,17 @@ core-universal:
 	fi
 
 editor:
-	cd editor && npm install && npx vite build
+	cd editor && pnpm install --frozen-lockfile && pnpm build
 
-macos: core-universal
+macos: core-universal editor
+	cp core/target/release/libprompt_editor_core.a macos/Libraries/
+	cp core/include/prompt_editor.h macos/Libraries/
 	cd macos && arch -arm64 swift build -c release
+	rm -rf build/PromptEditor.app
+	mkdir -p build/PromptEditor.app/Contents/MacOS build/PromptEditor.app/Contents/Resources
+	cp macos/.build/release/PromptEditor build/PromptEditor.app/Contents/MacOS/
+	cp macos/PromptEditor/Info.plist build/PromptEditor.app/Contents/
+	cp editor/dist/index.html build/PromptEditor.app/Contents/Resources/editor.html
 
 windows: core editor
 	cd windows && cargo build --release
@@ -58,7 +65,7 @@ test-core:
 	cd core && cargo test -- --test-threads=1
 
 test-editor:
-	cd editor && npx vitest run
+	cd editor && pnpm test
 
 test-macos:
 	cd macos && swift test

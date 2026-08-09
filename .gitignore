@@ -166,10 +166,9 @@ $RECYCLE.BIN/
 .env.production
 
 # --------------------------------------------
-# Lock files (keep package-lock.json for reproducibility)
+# Dependency lockfiles are committed for reproducibility
 # --------------------------------------------
 # yarn.lock
-# pnpm-lock.yaml
 
 # --------------------------------------------
 # Documentation Build

@@ -30,10 +30,8 @@ cd ..
 echo ""
 echo "--- Building editor component ---"
 cd editor
-if [ ! -d node_modules ]; then
-    npm install
-fi
-npx vite build
+pnpm install --frozen-lockfile
+pnpm build
 echo "Editor built: editor/dist/index.html"
 cd ..
 
