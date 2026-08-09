@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prompt Editor — 为 CLI 而生的原生 Prompt 编辑器</title>
+  <meta name="description" content="Prompt Editor: a native, multi-platform prompt editor for CLI AI tools like Claude Code and Codex.">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="nav-logo" href="index.html">Prompt Editor</a>
+      <div class="nav-links">
+        <a href="features.html" data-i18n="nav.features">功能</a>
+        <a href="download.html" data-i18n="nav.download">下载</a>
+        <button class="lang-toggle" onclick="toggleLang()">EN</button>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <p class="hero-eyebrow" data-i18n="hero.eyebrow">Prompt Editor</p>
+    <h1 data-i18n="hero.title">为 CLI 而生的原生 Prompt 编辑器。</h1>
+    <p class="hero-sub" data-i18n="hero.sub"></p>
+    <div class="hero-cta">
+      <a class="btn-primary" href="download.html" data-i18n="hero.cta.download">立即下载</a>
+      <a href="features.html" data-i18n="hero.cta.features">了解功能 &gt;</a>
+    </div>
+    <div class="hero-visual">
+      <div class="editor-mock">
+        <div class="titlebar"><span></span><span></span><span></span></div>
+        <pre><span class="md-h1"># Code Review Prompt</span>
+
+Please review the following diff and focus on:
+
+1. **Correctness** — logic errors, edge cases
+2. **Performance** — unnecessary allocations
+3. **Style** — match the existing codebase
+
+<span class="md-code">git diff HEAD~1</span><span class="cursor"></span></pre>
+      </div>
+    </div>
+  </header>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" data-i18n="highlights.title"></h2>
+      <p class="section-sub" data-i18n="highlights.sub"></p>
+      <div class="grid">
+        <div class="card">
+          <div class="icon">📝</div>
+          <h3 data-i18n="card.markdown.title"></h3>
+          <p data-i18n="card.markdown.desc"></p>
+        </div>
+        <div class="card">
+          <div class="icon">⚡️</div>
+          <h3 data-i18n="card.hotkey.title"></h3>
+          <p data-i18n="card.hotkey.desc"></p>
+        </div>
+        <div class="card">
+          <div class="icon">📜</div>
+          <h3 data-i18n="card.history.title"></h3>
+          <p data-i18n="card.history.desc"></p>
+        </div>
+        <div class="card">
+          <div class="icon">🖼️</div>
+          <h3 data-i18n="card.image.title"></h3>
+          <p data-i18n="card.image.desc"></p>
+        </div>
+        <div class="card">
+          <div class="icon">📋</div>
+          <h3 data-i18n="card.copy.title"></h3>
+          <p data-i18n="card.copy.desc"></p>
+        </div>
+        <div class="card">
+          <div class="icon">✅</div>
+          <h3 data-i18n="card.confirm.title"></h3>
+          <p data-i18n="card.confirm.desc"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section dark">
+    <div class="container">
+      <h2 class="section-title" data-i18n="platforms.title"></h2>
+      <p class="section-sub" data-i18n="platforms.sub"></p>
+      <div class="platforms">
+        <div class="platform" style="background:#161617;border-color:#333;">
+          <div class="glyph"></div>
+          <h4>macOS</h4>
+          <p data-i18n="platform.macos.desc"></p>
+        </div>
+        <div class="platform" style="background:#161617;border-color:#333;">
+          <div class="glyph">🪟</div>
+          <h4>Windows</h4>
+          <p data-i18n="platform.windows.desc"></p>
+        </div>
+        <div class="platform" style="background:#161617;border-color:#333;">
+          <div class="glyph">🐧</div>
+          <h4>Linux</h4>
+          <p data-i18n="platform.linux.desc"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section cta">
+    <div class="container">
+      <h2 class="section-title" data-i18n="cta.title"></h2>
+      <div class="cta-links">
+        <a href="download.html" data-i18n="cta.download"></a>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <span data-i18n="footer.tagline"></span>
+      <span data-i18n="footer.copyright"></span>
+    </div>
+  </footer>
+
+  <script src="assets/i18n.js"></script>
+</body>
+</html>

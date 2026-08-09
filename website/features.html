@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>功能 — Prompt Editor</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="nav-logo" href="index.html">Prompt Editor</a>
+      <div class="nav-links">
+        <a href="features.html" class="active" data-i18n="nav.features">功能</a>
+        <a href="download.html" data-i18n="nav.download">下载</a>
+        <button class="lang-toggle" onclick="toggleLang()">EN</button>
+      </div>
+    </div>
+  </nav>
+
+  <header class="page-header">
+    <h1 data-i18n="features.title">功能</h1>
+    <p data-i18n="features.sub"></p>
+  </header>
+
+  <section class="section" style="padding-top:24px;">
+    <div class="container">
+      <div class="grid">
+        <div class="card">
+          <div class="icon">📝</div>
+          <h3 data-i18n="card.markdown.title"></h3>
+          <p data-i18n="card.markdown.desc"></p>
+        </div>
+        <div class="card">
+          <div class="icon">⚡️</div>
+          <h3 data-i18n="card.hotkey.title"></h3>
+          <p data-i18n="card.hotkey.desc"></p>
+        </div>
+        <div class="card">
+          <div class="icon">📜</div>
+          <h3 data-i18n="card.history.title"></h3>
+          <p data-i18n="card.history.desc"></p>
+        </div>
+        <div class="card">
+          <div class="icon">🖼️</div>
+          <h3 data-i18n="card.image.title"></h3>
+          <p data-i18n="card.image.desc"></p>
+        </div>
+        <div class="card">
+          <div class="icon">📋</div>
+          <h3 data-i18n="card.copy.title"></h3>
+          <p data-i18n="card.copy.desc"></p>
+        </div>
+        <div class="card">
+          <div class="icon">✅</div>
+          <h3 data-i18n="card.confirm.title"></h3>
+          <p data-i18n="card.confirm.desc"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" style="background:#f5f5f7;">
+    <div class="container">
+      <h2 class="section-title" data-i18n="shortcuts.title"></h2>
+      <p class="section-sub" data-i18n="shortcuts.sub"></p>
+      <table>
+        <thead>
+          <tr>
+            <th data-i18n="shortcuts.col.platform">平台</th>
+            <th data-i18n="shortcuts.col.key">快捷键</th>
+            <th data-i18n="shortcuts.col.action">功能</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>macOS</td>
+            <td><kbd>⌘</kbd> + <kbd>↵</kbd></td>
+            <td data-i18n="shortcuts.send"></td>
+          </tr>
+          <tr>
+            <td>macOS</td>
+            <td><kbd>⌥</kbd> + <kbd>Space</kbd></td>
+            <td data-i18n="shortcuts.toggle"></td>
+          </tr>
+          <tr>
+            <td>Windows</td>
+            <td><kbd>Alt</kbd> + <kbd>Space</kbd></td>
+            <td data-i18n="shortcuts.toggle"></td>
+          </tr>
+          <tr>
+            <td>Linux</td>
+            <td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Space</kbd></td>
+            <td data-i18n="shortcuts.toggle"></td>
+          </tr>
+          <tr>
+            <td>All</td>
+            <td><kbd>↑</kbd> <kbd>↓</kbd></td>
+            <td data-i18n="shortcuts.history"></td>
+          </tr>
+          <tr>
+            <td>All</td>
+            <td><kbd>Esc</kbd></td>
+            <td data-i18n="shortcuts.hide"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section dark">
+    <div class="container">
+      <h2 class="section-title" data-i18n="flow.title"></h2>
+      <p class="section-sub" data-i18n="flow.sub"></p>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div>
+            <h4 data-i18n="flow.1.title"></h4>
+            <p data-i18n="flow.1.desc"></p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div>
+            <h4 data-i18n="flow.2.title"></h4>
+            <p data-i18n="flow.2.desc"></p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div>
+            <h4 data-i18n="flow.3.title"></h4>
+            <p data-i18n="flow.3.desc"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <span data-i18n="footer.tagline"></span>
+      <span data-i18n="footer.copyright"></span>
+    </div>
+  </footer>
+
+  <script src="assets/i18n.js"></script>
+</body>
+</html>

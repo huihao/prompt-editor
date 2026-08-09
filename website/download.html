@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>下载 — Prompt Editor</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="nav-logo" href="index.html">Prompt Editor</a>
+      <div class="nav-links">
+        <a href="features.html" data-i18n="nav.features">功能</a>
+        <a href="download.html" class="active" data-i18n="nav.download">下载</a>
+        <button class="lang-toggle" onclick="toggleLang()">EN</button>
+      </div>
+    </div>
+  </nav>
+
+  <header class="page-header">
+    <h1 data-i18n="download.title">下载</h1>
+    <p data-i18n="download.sub"></p>
+  </header>
+
+  <section class="section" style="padding-top:24px;">
+    <div class="container" style="text-align:center;">
+      <p class="section-sub" data-i18n="download.coming" style="margin-top:0;"></p>
+      <div class="platforms">
+        <div class="platform">
+          <div class="glyph"></div>
+          <h4>macOS</h4>
+          <p>Swift + AppKit</p>
+        </div>
+        <div class="platform">
+          <div class="glyph">🪟</div>
+          <h4>Windows</h4>
+          <p>Tauri + WebView2</p>
+        </div>
+        <div class="platform">
+          <div class="glyph">🐧</div>
+          <h4>Linux</h4>
+          <p>GTK4 + WebKitGTK</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section dark">
+    <div class="container">
+      <h2 class="section-title" data-i18n="download.build.title"></h2>
+      <p class="section-sub" data-i18n="download.build.sub"></p>
+      <div class="code-block"><span class="comment"># Clone & build everything</span>
+git clone https://github.com/your-org/prompt-editor.git
+cd prompt-editor
+./build.sh
+
+<span class="comment"># Or build per platform</span>
+make core      <span class="comment"># Rust core library</span>
+make editor    <span class="comment"># Web editor bundle</span>
+make macos     <span class="comment"># macOS app → build/PromptEditor.app</span>
+make windows   <span class="comment"># Windows app</span>
+make linux     <span class="comment"># Linux app</span></div>
+
+      <h3 style="margin-top:56px;font-size:24px;text-align:center;" data-i18n="download.requirements"></h3>
+      <div class="grid" style="margin-top:32px;">
+        <div class="card"><p data-i18n="download.req.rust"></p></div>
+        <div class="card"><p data-i18n="download.req.node"></p></div>
+        <div class="card"><p data-i18n="download.req.swift"></p></div>
+        <div class="card"><p data-i18n="download.req.win"></p></div>
+        <div class="card"><p data-i18n="download.req.linux"></p></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <span data-i18n="footer.tagline"></span>
+      <span data-i18n="footer.copyright"></span>
+    </div>
+  </footer>
+
+  <script src="assets/i18n.js"></script>
+</body>
+</html>
