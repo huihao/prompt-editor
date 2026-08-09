@@ -18,6 +18,34 @@ export interface WKWebViewRuntime {
 type NativeCallback = (result: unknown, error?: string) => void;
 type PasteResolver = (result: NativeOperationResult) => void;
 
+const agentTypes = new Set<DetectedAgent['type']>([
+  'claude',
+  'kimi',
+  'codex',
+  'cursor',
+  'warp',
+  'unknown',
+]);
+
+function isDetectedAgent(value: unknown): value is DetectedAgent {
+  if (typeof value !== 'object' || value === null) return false;
+  const agent = value as Record<string, unknown>;
+  const optionalStrings = ['terminalApp', 'workingDirectory', 'windowTitle'];
+
+  return (
+    typeof agent.id === 'string' &&
+    typeof agent.name === 'string' &&
+    typeof agent.type === 'string' &&
+    agentTypes.has(agent.type as DetectedAgent['type']) &&
+    typeof agent.pid === 'number' &&
+    Number.isInteger(agent.pid) &&
+    agent.pid >= 0 &&
+    optionalStrings.every(
+      (field) => agent[field] === undefined || typeof agent[field] === 'string',
+    )
+  );
+}
+
 export class WKWebViewNativeClient implements NativeClient {
   readonly platform = 'macos' as const;
   readonly capabilities: ReadonlySet<NativeCapability> = new Set(allCapabilities);
@@ -156,8 +184,10 @@ export class WKWebViewNativeClient implements NativeClient {
 
         try {
           const agents: unknown = JSON.parse(result);
-          if (!Array.isArray(agents)) throw new Error('Expected an array');
-          return agents as DetectedAgent[];
+          if (!Array.isArray(agents) || !agents.every(isDetectedAgent)) {
+            throw new Error('Expected an array of valid agents');
+          }
+          return agents;
         } catch (cause) {
           throw new NativeClientError(
             'invalid-payload',

@@ -5,7 +5,10 @@ import {
   unsupported,
 } from '../platform/native-client';
 import { BrowserNativeClient } from '../platform/browser-client';
-import { createNativeClient } from '../platform/create-native-client';
+import {
+  createNativeClient,
+  runtimeFromWindow,
+} from '../platform/create-native-client';
 import { WKWebViewNativeClient } from '../platform/wkwebview-client';
 import { TauriNativeClient } from '../platform/tauri-client';
 
@@ -150,6 +153,21 @@ describe('WKWebViewNativeClient', () => {
     expect(callbackHost).not.toHaveProperty(agentsMessage.callback);
   });
 
+  it('rejects malformed agent records inside valid JSON arrays', async () => {
+    const { callbackHost, client, postMessage } = createWKClient();
+
+    const agentsPromise = client.listRunningAgents();
+    const message = postMessage.mock.calls[0][0];
+    const callback = callbackHost[message.callback] as (result: string) => void;
+    callback('[null,{"id":"bad","name":"Bad","type":"other","pid":"42"}]');
+
+    await expect(agentsPromise).rejects.toMatchObject({
+      code: 'invalid-payload',
+      capability: 'agents.list',
+    });
+    expect(callbackHost).not.toHaveProperty(message.callback);
+  });
+
   it('turns native callback errors into typed failures and cleans up', async () => {
     const { callbackHost, client, postMessage } = createWKClient();
 
@@ -199,7 +217,69 @@ describe('WKWebViewNativeClient', () => {
   });
 });
 
+describe('LinuxNativeClient', () => {
+  it('reads the platform marker injected by the Linux shell', () => {
+    (window as any).webkit = {
+      messageHandlers: { promptEditor: { postMessage: vi.fn() } },
+    };
+    (window as any).__PROMPT_EDITOR_PLATFORM__ = 'linux';
+    try {
+      expect(createNativeClient(runtimeFromWindow()).platform).toBe('linux');
+    } finally {
+      delete (window as any).webkit;
+      delete (window as any).__PROMPT_EDITOR_PLATFORM__;
+    }
+  });
+
+  it('does not classify the Linux WebKit bridge as fully capable macOS', async () => {
+    const postMessage = vi.fn();
+    const client = createNativeClient({
+      wkMessageHandler: { postMessage },
+      callbackHost: {},
+      userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15',
+    });
+
+    expect(client.platform).toBe('linux');
+    expect([...client.capabilities]).toEqual([
+      'content.send',
+      'clipboard.write',
+      'window.hide',
+    ]);
+
+    await client.send({ content: 'prompt', target: 'default' });
+    await client.writeClipboard('copy me');
+    await client.hideWindow();
+    expect(postMessage.mock.calls.map(([message]) => message)).toEqual([
+      { action: 'send', content: 'prompt' },
+      { action: 'copy', content: 'copy me' },
+      { action: 'hide' },
+    ]);
+    await expect(client.pickDirectory()).rejects.toMatchObject({
+      code: 'unsupported',
+      capability: 'directory.pick',
+    });
+  });
+});
+
 describe('TauriNativeClient', () => {
+  it('reads invoke from the Tauri v1 global runtime', async () => {
+    const invoke = vi.fn().mockResolvedValue(undefined);
+    (window as any).__TAURI__ = { tauri: { invoke } };
+    try {
+      const runtime = runtimeFromWindow();
+      expect(runtime.tauriInvoke).toBeTypeOf('function');
+
+      const client = createNativeClient(runtime);
+      expect(client.platform).toBe('windows');
+      await client.hideWindow();
+      expect(invoke).toHaveBeenCalledWith('handle_editor_message', {
+        message: { action: 'hide' },
+      });
+    } finally {
+      delete (window as any).__TAURI__;
+    }
+  });
+
   it('is selected when WKWebView is absent', () => {
     const client = createNativeClient({
       tauriInvoke: vi.fn(),

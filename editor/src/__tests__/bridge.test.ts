@@ -182,7 +182,7 @@ describe('Bridge', () => {
 
     it('routes supported operations through the Tauri command', async () => {
       const invoke = vi.fn().mockResolvedValue(undefined);
-      (window as any).__TAURI__ = { invoke };
+      (window as any).__TAURI__ = { tauri: { invoke } };
 
       bridge.setContent('windows prompt');
       await bridge.send();

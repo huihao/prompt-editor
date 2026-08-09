@@ -122,6 +122,7 @@ fn setup_message_handler(webview: &WebKitWebView, window: &ApplicationWindow) {
 
     // Inject JavaScript bridge
     let script = r#"
+        window.__PROMPT_EDITOR_PLATFORM__ = 'linux';
         window.promptEditor = {
             getContent: function() { return window.editorContent || ''; },
             setContent: function(text) { window.editorContent = text; },

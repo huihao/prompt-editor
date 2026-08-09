@@ -1,4 +1,4 @@
-export type NativePlatform = 'macos' | 'windows' | 'browser';
+export type NativePlatform = 'macos' | 'windows' | 'linux' | 'browser';
 
 export const allCapabilities = [
   'content.send',
