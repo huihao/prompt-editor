@@ -30,8 +30,8 @@ cd ..
 echo ""
 echo "--- Building editor component ---"
 cd editor
-pnpm install --frozen-lockfile
-pnpm build
+corepack pnpm install --frozen-lockfile
+corepack pnpm build
 echo "Editor built: editor/dist/index.html"
 cd ..
 

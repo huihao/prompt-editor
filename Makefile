@@ -2,6 +2,7 @@
 
 # Detect OS
 UNAME_S := $(shell uname -s)
+PNPM ?= corepack pnpm
 
 ifeq ($(UNAME_S),Linux)
     TARGET := linux
@@ -32,7 +33,7 @@ core-universal:
 	fi
 
 editor:
-	cd editor && pnpm install --frozen-lockfile && pnpm build
+	cd editor && $(PNPM) install --frozen-lockfile && $(PNPM) build
 
 macos: core-universal editor
 	cp core/target/release/libprompt_editor_core.a macos/Libraries/
@@ -65,7 +66,7 @@ test-core:
 	cd core && cargo test -- --test-threads=1
 
 test-editor:
-	cd editor && pnpm test
+	cd editor && $(PNPM) test
 
 test-macos:
 	cd macos && swift test

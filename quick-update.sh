@@ -8,7 +8,7 @@ cd "$(dirname "$0")"
 # 1. 构建 editor
 echo ""
 echo "1. 构建 editor..."
-cd editor && pnpm build && cd ..
+cd editor && corepack pnpm build && cd ..
 
 # 2. 复制到 app bundle
 echo ""
