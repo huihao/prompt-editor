@@ -25,6 +25,24 @@ Rules:
 - Match the style and context of what the user has already written
 - Keep it brief and actionable`;
 
+const AUTOCOMPLETE_CONTEXT_LIMIT = 1200;
+const AUTOCOMPLETE_MIN_CHARS = 10;
+
+export function buildAutocompleteContext(doc: string, cursorPos: number): string {
+  const safePos = Math.max(0, Math.min(cursorPos, doc.length));
+  const before = doc.slice(Math.max(0, safePos - AUTOCOMPLETE_CONTEXT_LIMIT), safePos);
+  const after = doc.slice(safePos, Math.min(doc.length, safePos + 300));
+
+  return `Before cursor:
+${before}
+
+Cursor position:
+<cursor>
+
+After cursor:
+${after}`;
+}
+
 // ─── Ghost text widget ────────────────────────────────────────────────────────
 
 class GhostTextWidget extends WidgetType {
@@ -140,8 +158,6 @@ const ghostTextPlugin = ViewPlugin.fromClass(
         this.abortCtrl.abort();
         this.abortCtrl = null;
       }
-      // Clear any visible suggestion
-      view.dispatch({ effects: setSuggestion.of(null) });
     }
 
     private triggerSuggestion(view: EditorView): void {
@@ -149,20 +165,17 @@ const ghostTextPlugin = ViewPlugin.fromClass(
 
       const state = view.state;
       const doc = state.doc.toString();
-      if (doc.trim().length < 30) return;
+      if (doc.trim().length < AUTOCOMPLETE_MIN_CHARS) return;
 
-      // Only suggest at end of document
       const selection = state.selection.main;
       if (!selection.empty) return;
-      const docLength = doc.length;
-      if (selection.head !== docLength) return;
+      const cursorPos = selection.head;
 
       // Don't show if autocomplete dropdown is active
       const compStatus = completionStatus(state);
       if (compStatus === 'active' || compStatus === 'pending') return;
 
       const requestId = ++this.requestId;
-      const cursorPos = docLength;
 
       // Show loading indicator
       view.dispatch({
@@ -174,7 +187,7 @@ const ghostTextPlugin = ViewPlugin.fromClass(
       this.abortCtrl = streamAIText(
         [
           { role: 'system', content: AUTOCOMPLETE_SYSTEM_PROMPT },
-          { role: 'user', content: doc },
+          { role: 'user', content: buildAutocompleteContext(doc, cursorPos) },
         ],
         (chunk) => {
           if (this.requestId !== requestId) return;

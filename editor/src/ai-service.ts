@@ -4,7 +4,12 @@ import { streamText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { getAIConfig, type AIConfig, type AIProvider } from './ai-config';
+import {
+  getAIConfig,
+  getAIProviderDefinition,
+  type AIConfig,
+  type AIProvider,
+} from './ai-config';
 
 export interface AIMessage {
   role: 'system' | 'user' | 'assistant';
@@ -48,9 +53,18 @@ export function streamAIText(
         maxOutputTokens: 4096,
       });
 
+      let sawChunk = false;
       for await (const chunk of result.textStream) {
         if (abortController.signal.aborted) break;
+        sawChunk = true;
         onChunk(chunk);
+      }
+
+      if (!abortController.signal.aborted && !sawChunk) {
+        const fullText = await result.text;
+        if (!abortController.signal.aborted && fullText.trim()) {
+          onChunk(fullText);
+        }
       }
 
       if (!abortController.signal.aborted) {
@@ -79,6 +93,7 @@ export function streamAIText(
 
 function createLanguageModel(config: AIConfig) {
   const { provider, model, apiKey, baseURL } = config;
+  const definition = getAIProviderDefinition(provider as AIProvider);
 
   switch (provider as AIProvider) {
     case 'openai':
@@ -94,6 +109,18 @@ function createLanguageModel(config: AIConfig) {
       return createOpenAI({
         apiKey: 'ollama',
         baseURL: baseURL ?? 'http://localhost:11434/v1',
+      })(model);
+
+    case 'deepseek':
+    case 'moonshotai':
+    case 'moonshotai-cn':
+    case 'minimax':
+    case 'minimax-cn':
+    case 'kimi-coding':
+    case 'xiaomi-token-plan-cn':
+      return createOpenAI({
+        apiKey,
+        baseURL: baseURL ?? definition.defaultBaseURL,
       })(model);
 
     default:

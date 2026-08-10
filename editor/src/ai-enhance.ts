@@ -2,7 +2,8 @@
 
 import type { EditorView } from '@codemirror/view';
 import { streamAIText } from './ai-service';
-import { isAIConfigured, showAISettingsModal } from './ai-config';
+import { isAIConfigured } from './ai-config';
+import { showSettings } from './settings-ui';
 
 const ENHANCE_SYSTEM_PROMPT = `You are an expert prompt engineer. Your task is to expand and improve the given prompt to make it:
 - More specific and detailed
@@ -14,15 +15,30 @@ Return ONLY the improved prompt text. Do not add any explanation, preamble, or c
 
 let enhanceOverlay: HTMLElement | null = null;
 
+interface EnhanceTarget {
+  from: number;
+  to: number;
+  content: string;
+}
+
+export function getEnhanceTarget(view: EditorView): EnhanceTarget {
+  const selection = view.state.selection.main;
+  const from = selection.empty ? 0 : selection.from;
+  const to = selection.empty ? view.state.doc.length : selection.to;
+  const content = view.state.doc.sliceString(from, to);
+  return { from, to, content };
+}
+
 export function enhancePrompt(view: EditorView): void {
-  const content = view.state.doc.toString().trim();
+  const target = getEnhanceTarget(view);
+  const content = target.content.trim();
   if (!content) {
     showEnhanceToast('Write something first before enhancing.');
     return;
   }
 
   if (!isAIConfigured()) {
-    showAISettingsModal();
+    showSettings('ai');
     return;
   }
 
@@ -121,7 +137,7 @@ export function enhancePrompt(view: EditorView): void {
   applyBtn.addEventListener('click', () => {
     if (!accumulated.trim()) return;
     view.dispatch({
-      changes: { from: 0, to: view.state.doc.length, insert: accumulated },
+      changes: { from: target.from, to: target.to, insert: accumulated },
     });
     closeOverlay();
   });
