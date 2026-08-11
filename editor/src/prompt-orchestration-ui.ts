@@ -3,6 +3,8 @@ import { isAIConfigured } from './ai-config';
 import { streamAIText } from './ai-service';
 import {
   createWorkflowId,
+  extractCompleteWorkflowStages,
+  normalizeWorkflow,
   parseWorkflowResponse,
   workflowToMarkdown,
   type PromptWorkflow,
@@ -133,7 +135,7 @@ function openWorkflowEditor(view: EditorView, sourcePrompt: string, initial?: Pr
         <button class="prompt-workflow-icon-button" data-action="close" title="Close" aria-label="Close">×</button>
       </header>
       <div class="prompt-workflow-source"><span>Source prompt</span><p>${escapeHtml(sourcePrompt)}</p></div>
-      <div class="prompt-workflow-status" aria-live="polite"></div>
+      <div class="prompt-workflow-status" aria-live="polite">Ready to generate workflow.</div>
       <div class="prompt-workflow-editor-body" hidden>
         <label class="prompt-workflow-title-field">Workflow title
           <input id="prompt-workflow-title" type="text" autocomplete="off">
@@ -142,7 +144,7 @@ function openWorkflowEditor(view: EditorView, sourcePrompt: string, initial?: Pr
         <button class="ai-btn-secondary prompt-workflow-add-stage" data-action="add-stage">+ Add stage</button>
       </div>
       <footer class="prompt-workflow-footer">
-        <button id="prompt-workflow-regenerate" class="ai-btn-secondary" data-action="regenerate">Regenerate</button>
+        <button id="prompt-workflow-regenerate" class="ai-btn-secondary" data-action="regenerate">Generate workflow</button>
         <span class="prompt-workflow-footer-spacer"></span>
         <button id="prompt-workflow-cancel" class="ai-btn-secondary" data-action="close">Cancel</button>
         <button id="prompt-workflow-save" class="ai-btn-primary" data-action="save" disabled>Save workflow</button>
@@ -152,6 +154,8 @@ function openWorkflowEditor(view: EditorView, sourcePrompt: string, initial?: Pr
   activeOverlay = overlay;
 
   let workflow: PromptWorkflow | null = initial ? clone(initial) : null;
+  let generationComplete = Boolean(initial);
+  let previewStageCount = 0;
   let abortController: AbortController | null = null;
   activeOverlayCleanup = () => abortController?.abort();
   let accumulated = '';
@@ -182,29 +186,48 @@ function openWorkflowEditor(view: EditorView, sourcePrompt: string, initial?: Pr
         </div>
         <button class="prompt-workflow-add-prompt" data-action="add-prompt">+ Add parallel prompt</button>
       </section>`).join('<div class="prompt-workflow-sequence-arrow" aria-hidden="true">↓</div>');
-    saveButton.disabled = countPrompts(workflow) === 0;
+    saveButton.disabled = !generationComplete || countPrompts(workflow) === 0;
   };
 
   const startGeneration = () => {
     abortController?.abort();
     accumulated = '';
     workflow = null;
+    generationComplete = false;
+    previewStageCount = 0;
     editorBody.hidden = true;
     status.hidden = false;
     status.className = 'prompt-workflow-status is-loading';
     status.textContent = 'Generating workflow...';
     saveButton.disabled = true;
     regenerateButton.disabled = true;
+    regenerateButton.textContent = 'Regenerate';
 
     const controller = streamAIText(
       [
         { role: 'system', content: ORCHESTRATION_SYSTEM_PROMPT },
         { role: 'user', content: sourcePrompt },
       ],
-      chunk => { accumulated += chunk; },
+      chunk => {
+        accumulated += chunk;
+        const previewStages = extractCompleteWorkflowStages(accumulated);
+        if (previewStages.length <= previewStageCount) return;
+
+        try {
+          workflow = normalizeWorkflow({
+            title: 'Generating workflow',
+            stages: previewStages,
+          }, sourcePrompt);
+          previewStageCount = previewStages.length;
+          render();
+        } catch {
+          // Keep rendering the last valid preview until another complete stage arrives.
+        }
+      },
       () => {
         try {
           workflow = parseWorkflowResponse(accumulated, sourcePrompt);
+          generationComplete = true;
           render();
         } catch (error) {
           status.hidden = false;
@@ -226,7 +249,6 @@ function openWorkflowEditor(view: EditorView, sourcePrompt: string, initial?: Pr
   };
 
   if (initial) render();
-  else startGeneration();
 
   titleInput.addEventListener('input', () => {
     if (workflow) workflow.title = titleInput.value;
@@ -238,7 +260,7 @@ function openWorkflowEditor(view: EditorView, sourcePrompt: string, initial?: Pr
     if (!prompt) return;
     if (target.matches('[data-field="title"]')) prompt.title = target.value;
     if (target.matches('[data-field="content"]')) prompt.content = target.value;
-    saveButton.disabled = !hasValidPrompts(workflow!);
+    saveButton.disabled = !generationComplete || !hasValidPrompts(workflow!);
   });
   overlay.addEventListener('click', event => {
     if (event.target === overlay) return closeOverlay(overlay, view, abortController);

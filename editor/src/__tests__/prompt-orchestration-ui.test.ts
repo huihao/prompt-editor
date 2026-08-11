@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WORKFLOW_STORAGE_KEY } from '../prompt-workflow-store';
 
@@ -37,6 +39,19 @@ function createView(content: string, from = 0, to = 0) {
 }
 
 describe('prompt orchestration UI', () => {
+  it('uses an expanded desktop panel while preserving the mobile viewport constraint', () => {
+    const html = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');
+
+    expect(html).toContain('width: min(1360px, 96vw); height: min(900px, 92vh);');
+    expect(html).toContain('.prompt-workflow-modal { width: 100%; height: 94vh; }');
+  });
+
+  it('keeps a hidden workflow status out of the layout', () => {
+    const html = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');
+
+    expect(html).toContain('.prompt-workflow-status[hidden] { display: none; }');
+  });
+
   beforeEach(() => {
     document.body.innerHTML = '<div id="toast"></div>';
     localStorage.clear();
@@ -60,6 +75,17 @@ describe('prompt orchestration UI', () => {
     expect(streamAITextMock).not.toHaveBeenCalled();
   });
 
+  it('waits for an explicit action before generating a workflow', () => {
+    showPromptOrchestration(createView('Build a launch plan'));
+
+    expect(streamAITextMock).not.toHaveBeenCalled();
+    expect(document.querySelector('.prompt-workflow-status')?.textContent).toBe('Ready to generate workflow.');
+    expect(document.getElementById('prompt-workflow-regenerate')?.textContent).toBe('Generate workflow');
+
+    (document.getElementById('prompt-workflow-regenerate') as HTMLButtonElement).click();
+    expect(streamAITextMock).toHaveBeenCalledOnce();
+  });
+
   it('renders generated stages and saves without changing the editor', () => {
     streamAITextMock.mockImplementation((_messages, onChunk, onDone) => {
       onChunk(JSON.stringify({
@@ -78,6 +104,7 @@ describe('prompt orchestration UI', () => {
     const view = createView('Build a launch plan');
 
     showPromptOrchestration(view);
+    (document.getElementById('prompt-workflow-regenerate') as HTMLButtonElement).click();
 
     expect(document.querySelectorAll('.prompt-workflow-stage')).toHaveLength(2);
     expect(document.querySelectorAll('.prompt-workflow-card')).toHaveLength(3);
@@ -89,11 +116,52 @@ describe('prompt orchestration UI', () => {
     expect(document.querySelector('.prompt-workflow-overlay')).toBeNull();
   });
 
+  it('hides the generation status after a valid workflow finishes', () => {
+    streamAITextMock.mockImplementation((_messages, onChunk, onDone) => {
+      onChunk(JSON.stringify({
+        title: 'Launch workflow',
+        stages: [{ prompts: [{ title: 'Research', content: 'Research the market.' }] }],
+      }));
+      onDone();
+      return new AbortController();
+    });
+
+    showPromptOrchestration(createView('Build a launch plan'));
+    (document.getElementById('prompt-workflow-regenerate') as HTMLButtonElement).click();
+
+    expect(document.querySelector<HTMLElement>('.prompt-workflow-status')?.hidden).toBe(true);
+  });
+
+  it('renders complete streamed stages but waits for final validation before saving', () => {
+    let onChunk: ((chunk: string) => void) | undefined;
+    let onDone: (() => void) | undefined;
+    streamAITextMock.mockImplementation((_messages, chunkCallback, doneCallback) => {
+      onChunk = chunkCallback;
+      onDone = doneCallback;
+      return new AbortController();
+    });
+
+    showPromptOrchestration(createView('Build a launch plan'));
+    (document.getElementById('prompt-workflow-regenerate') as HTMLButtonElement).click();
+
+    onChunk?.('{"title":"Launch workflow","stages":[{"prompts":[{"title":"Research","content":"Research the market."}]},');
+
+    expect(document.querySelectorAll('.prompt-workflow-stage')).toHaveLength(1);
+    expect((document.getElementById('prompt-workflow-save') as HTMLButtonElement).disabled).toBe(true);
+
+    onChunk?.('{"prompts":[{"title":"Copy","content":"Write launch copy."}]}]}');
+    onDone?.();
+
+    expect(document.querySelectorAll('.prompt-workflow-stage')).toHaveLength(2);
+    expect((document.getElementById('prompt-workflow-save') as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it('aborts generation when the modal is cancelled', () => {
     const abort = vi.fn();
     streamAITextMock.mockReturnValue({ abort });
 
     showPromptOrchestration(createView('Build a launch plan'));
+    (document.getElementById('prompt-workflow-regenerate') as HTMLButtonElement).click();
     (document.getElementById('prompt-workflow-cancel') as HTMLButtonElement).click();
 
     expect(abort).toHaveBeenCalled();
@@ -106,6 +174,7 @@ describe('prompt orchestration UI', () => {
 
     const view = createView('Build a launch plan');
     showPromptOrchestration(view);
+    (document.getElementById('prompt-workflow-regenerate') as HTMLButtonElement).click();
     showWorkflowManager(view);
 
     expect(abort).toHaveBeenCalled();
@@ -135,6 +204,7 @@ describe('prompt orchestration UI', () => {
     });
 
     showPromptOrchestration(createView('Ignore this; orchestrate this part.', 13, 34));
+    (document.getElementById('prompt-workflow-regenerate') as HTMLButtonElement).click();
 
     expect(streamAITextMock.mock.calls[0][0][1]).toEqual({
       role: 'user',
@@ -156,6 +226,7 @@ describe('prompt orchestration UI', () => {
       });
 
     showPromptOrchestration(createView('Build a workflow'));
+    (document.getElementById('prompt-workflow-regenerate') as HTMLButtonElement).click();
     expect(document.querySelector('.prompt-workflow-status')?.textContent).toContain('not valid JSON');
     expect(localStorage.getItem(WORKFLOW_STORAGE_KEY)).toBeNull();
 
@@ -171,6 +242,7 @@ describe('prompt orchestration UI', () => {
     const view = createView('Keep this draft');
 
     showPromptOrchestration(view);
+    (document.getElementById('prompt-workflow-regenerate') as HTMLButtonElement).click();
 
     expect(document.querySelector('.prompt-workflow-status')?.textContent).toBe('Network unavailable');
     expect(localStorage.getItem(WORKFLOW_STORAGE_KEY)).toBeNull();
@@ -203,6 +275,7 @@ describe('prompt orchestration UI', () => {
       return new AbortController();
     });
     showPromptOrchestration(createView('Build a workflow'));
+    (document.getElementById('prompt-workflow-regenerate') as HTMLButtonElement).click();
 
     document.querySelector<HTMLButtonElement>('[data-action="add-prompt"]')?.click();
     expect(document.querySelectorAll('.prompt-workflow-card')).toHaveLength(2);

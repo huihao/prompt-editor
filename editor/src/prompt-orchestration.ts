@@ -33,6 +33,49 @@ export function stripJsonFence(raw: string): string {
   return (fenced?.[1] ?? trimmed).trim();
 }
 
+export function extractCompleteWorkflowStages(raw: string): unknown[] {
+  const stagesMatch = /"stages"\s*:\s*\[/.exec(raw);
+  if (!stagesMatch) return [];
+
+  const stages: unknown[] = [];
+  let inString = false;
+  let escaping = false;
+  let objectDepth = 0;
+  let stageStart = -1;
+
+  for (let index = stagesMatch.index + stagesMatch[0].length; index < raw.length; index += 1) {
+    const char = raw[index];
+
+    if (inString) {
+      if (escaping) escaping = false;
+      else if (char === '\\') escaping = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+    } else if (char === '{') {
+      if (objectDepth === 0) stageStart = index;
+      objectDepth += 1;
+    } else if (char === '}' && objectDepth > 0) {
+      objectDepth -= 1;
+      if (objectDepth === 0 && stageStart >= 0) {
+        try {
+          stages.push(JSON.parse(raw.slice(stageStart, index + 1)));
+        } catch {
+          // A complete-looking but malformed stage is not safe to preview.
+        }
+        stageStart = -1;
+      }
+    } else if (char === ']' && objectDepth === 0) {
+      break;
+    }
+  }
+
+  return stages;
+}
+
 export function parseWorkflowResponse(raw: string, sourcePrompt: string): PromptWorkflow {
   let parsed: unknown;
   try {

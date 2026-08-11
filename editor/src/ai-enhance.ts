@@ -54,7 +54,7 @@ export function enhancePrompt(view: EditorView): void {
       <div class="ai-enhance-header">
         <span class="ai-enhance-title">✨ AI Enhance Prompt</span>
         <div class="ai-enhance-header-actions">
-          <span class="ai-enhance-status" id="ai-enhance-status">Generating...</span>
+          <span class="ai-enhance-status" id="ai-enhance-status">Ready</span>
           <button class="ai-settings-close" id="ai-enhance-close">×</button>
         </div>
       </div>
@@ -67,13 +67,13 @@ export function enhancePrompt(view: EditorView): void {
         <div class="ai-diff-panel">
           <div class="ai-diff-label">
             Enhanced
-            <span class="ai-enhance-cursor" id="ai-enhance-cursor">▌</span>
+            <span class="ai-enhance-cursor" id="ai-enhance-cursor" style="display:none">▌</span>
           </div>
           <div class="ai-diff-content ai-diff-enhanced" id="ai-diff-enhanced"></div>
         </div>
       </div>
       <div class="ai-enhance-footer">
-        <button id="ai-enhance-regenerate" class="ai-btn-secondary" disabled>↺ Regenerate</button>
+        <button id="ai-enhance-generate" class="ai-btn-secondary">Enhance</button>
         <div style="flex:1"></div>
         <button id="ai-enhance-cancel" class="ai-btn-secondary">Cancel</button>
         <button id="ai-enhance-apply" class="ai-btn-primary" disabled>Apply →</button>
@@ -91,7 +91,7 @@ export function enhancePrompt(view: EditorView): void {
   const enhancedEl = overlay.querySelector('#ai-diff-enhanced') as HTMLElement;
   const cursorEl = overlay.querySelector('#ai-enhance-cursor') as HTMLElement;
   const applyBtn = overlay.querySelector('#ai-enhance-apply') as HTMLButtonElement;
-  const regenerateBtn = overlay.querySelector('#ai-enhance-regenerate') as HTMLButtonElement;
+  const generateBtn = overlay.querySelector('#ai-enhance-generate') as HTMLButtonElement;
 
   function startGeneration() {
     accumulated = '';
@@ -100,7 +100,7 @@ export function enhancePrompt(view: EditorView): void {
     statusEl.className = 'ai-enhance-status ai-status-generating';
     cursorEl.style.display = 'inline';
     applyBtn.disabled = true;
-    regenerateBtn.disabled = true;
+    generateBtn.disabled = true;
 
     abortCtrl = streamAIText(
       [
@@ -118,20 +118,20 @@ export function enhancePrompt(view: EditorView): void {
         statusEl.textContent = '✓ Done';
         statusEl.className = 'ai-enhance-status ai-status-done';
         applyBtn.disabled = false;
-        regenerateBtn.disabled = false;
+        generateBtn.disabled = false;
+        generateBtn.textContent = 'Regenerate';
         abortCtrl = null;
       },
       (err) => {
         cursorEl.style.display = 'none';
         statusEl.textContent = `✗ ${err.message}`;
         statusEl.className = 'ai-enhance-status ai-status-error';
-        regenerateBtn.disabled = false;
+        generateBtn.disabled = false;
+        generateBtn.textContent = 'Regenerate';
         abortCtrl = null;
       },
     );
   }
-
-  startGeneration();
 
   // Apply button
   applyBtn.addEventListener('click', () => {
@@ -142,8 +142,7 @@ export function enhancePrompt(view: EditorView): void {
     closeOverlay();
   });
 
-  // Regenerate
-  regenerateBtn.addEventListener('click', () => {
+  generateBtn.addEventListener('click', () => {
     if (abortCtrl) abortCtrl.abort();
     startGeneration();
   });

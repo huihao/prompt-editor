@@ -50,21 +50,25 @@ export function streamAIText(
         system: systemMsg,
         messages: chatMessages,
         abortSignal: abortController.signal,
-        maxOutputTokens: 4096,
       });
 
-      let sawChunk = false;
-      for await (const chunk of result.textStream) {
+      let sawText = false;
+      let streamError: Error | null = null;
+      for await (const part of result.fullStream) {
         if (abortController.signal.aborted) break;
-        sawChunk = true;
-        onChunk(chunk);
+
+        if (part.type === 'text-delta') {
+          sawText = true;
+          onChunk(part.text);
+        } else if (part.type === 'error') {
+          streamError = part.error instanceof Error ? part.error : new Error(String(part.error));
+          break;
+        }
       }
 
-      if (!abortController.signal.aborted && !sawChunk) {
-        const fullText = await result.text;
-        if (!abortController.signal.aborted && fullText.trim()) {
-          onChunk(fullText);
-        }
+      if (streamError) throw streamError;
+      if (!abortController.signal.aborted && !sawText) {
+        throw new Error('The AI provider returned an empty response. Try again or check the selected model.');
       }
 
       if (!abortController.signal.aborted) {

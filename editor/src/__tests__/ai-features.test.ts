@@ -49,6 +49,10 @@ describe('AI features', () => {
     const view = createView('alpha beta gamma', 6, 10);
 
     enhancePrompt(view);
+    expect(streamAITextMock).not.toHaveBeenCalled();
+    expect(document.querySelector<HTMLButtonElement>('#ai-enhance-generate')?.textContent).toBe('Enhance');
+    document.querySelector<HTMLButtonElement>('#ai-enhance-generate')?.click();
+    expect(streamAITextMock).toHaveBeenCalledOnce();
     document.querySelector<HTMLButtonElement>('#ai-enhance-apply')?.click();
 
     expect(view.state.doc.toString()).toBe('alpha better prompt gamma');

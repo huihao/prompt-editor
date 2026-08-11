@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  extractCompleteWorkflowStages,
   MAX_WORKFLOW_PROMPTS,
   parseWorkflowResponse,
   stripJsonFence,
@@ -7,6 +8,29 @@ import {
 } from '../prompt-orchestration';
 
 describe('prompt orchestration', () => {
+  it('extracts only complete stages from a streaming response', () => {
+    const response = '{"stages":[{"prompts":[{"title":"Research","content":"Find sources"}]},{"prompts":[{"title":"Write","content":"Draft copy"}]}]}';
+    const firstChunk = response.slice(0, response.indexOf('},{"prompts"') + 1);
+
+    expect(extractCompleteWorkflowStages(firstChunk)).toEqual([
+      { prompts: [{ title: 'Research', content: 'Find sources' }] },
+    ]);
+    expect(extractCompleteWorkflowStages(response)).toEqual([
+      { prompts: [{ title: 'Research', content: 'Find sources' }] },
+      { prompts: [{ title: 'Write', content: 'Draft copy' }] },
+    ]);
+  });
+
+  it('does not extract a stage that ends inside an escaped string', () => {
+    const response = '{"stages":[{"prompts":[{"title":"Quote","content":"Use \\"quoted\\" text"}]}]}';
+    const partialChunk = response.slice(0, response.indexOf(' text"') + 6);
+
+    expect(extractCompleteWorkflowStages(partialChunk)).toEqual([]);
+    expect(extractCompleteWorkflowStages(response)).toEqual([
+      { prompts: [{ title: 'Quote', content: 'Use "quoted" text' }] },
+    ]);
+  });
+
   it('strips a markdown JSON fence', () => {
     expect(stripJsonFence('```json\n{"title":"Research"}\n```')).toBe('{"title":"Research"}');
   });

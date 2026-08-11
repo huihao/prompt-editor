@@ -25,10 +25,18 @@ vi.mock('../ai-config', () => ({
 }));
 
 describe('ai-service', () => {
-  it('falls back to the final text when the stream emits no chunks', async () => {
+  const config = {
+    provider: 'openai' as const,
+    model: 'gpt-5.6',
+    apiKey: 'test-key',
+    enabled: true,
+  };
+
+  it('delivers text emitted by the complete stream', async () => {
     streamTextMock.mockReturnValue({
-      textStream: (async function* () {})(),
-      text: Promise.resolve('final enhanced prompt'),
+      fullStream: (async function* () {
+        yield { type: 'text-delta', text: 'enhanced prompt' };
+      })(),
     });
 
     const onChunk = vi.fn();
@@ -40,18 +48,39 @@ describe('ai-service', () => {
       onChunk,
       onDone,
       onError,
-      {
-        provider: 'openai',
-        model: 'gpt-5.6',
-        apiKey: 'test-key',
-        enabled: true,
-      },
+      config,
     );
 
     await vi.waitFor(() => {
-      expect(onChunk).toHaveBeenCalledWith('final enhanced prompt');
+      expect(onChunk).toHaveBeenCalledWith('enhanced prompt');
       expect(onDone).toHaveBeenCalled();
     });
+    expect(streamTextMock.mock.calls[0][0]).not.toHaveProperty('maxOutputTokens');
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('reports an error emitted by the complete stream', async () => {
+    const providerError = new Error('Model is unavailable');
+    streamTextMock.mockReturnValue({
+      fullStream: (async function* () {
+        yield { type: 'error', error: providerError };
+      })(),
+    });
+
+    const onChunk = vi.fn();
+    const onDone = vi.fn();
+    const onError = vi.fn();
+
+    streamAIText(
+      [{ role: 'user', content: 'hello' }],
+      onChunk,
+      onDone,
+      onError,
+      config,
+    );
+
+    await vi.waitFor(() => expect(onError).toHaveBeenCalledWith(providerError));
+    expect(onChunk).not.toHaveBeenCalled();
+    expect(onDone).not.toHaveBeenCalled();
   });
 });
