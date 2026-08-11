@@ -563,9 +563,12 @@ public class MainWindow: NSObject, WKScriptMessageHandler, NSWindowDelegate, WKN
         // Load snippet data from WebView (includes user custom data from localStorage)
         webView.evaluateJavaScript("window.snippetManager?.exportData() || '{\"version\":\"1.0\",\"categories\":[]}'") { [weak self] result, error in
             let json = (result as? String) ?? snippetManager.toJSON()
-            DispatchQueue.main.async {
-                self?.snippetWheelWindow?.injectSnippetData(json)
-                self?.snippetWheelWindow?.show()
+            self?.webView.evaluateJavaScript("window.promptEditor?.getLocale?.() || 'en'") { locale, _ in
+                DispatchQueue.main.async {
+                    self?.snippetWheelWindow?.injectLocale(locale as? String ?? "en")
+                    self?.snippetWheelWindow?.injectSnippetData(json)
+                    self?.snippetWheelWindow?.show()
+                }
             }
         }
     }

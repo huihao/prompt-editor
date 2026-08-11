@@ -72,7 +72,7 @@ test-macos:
 	cd macos && swift test
 
 run: all
-	./build.sh && open build/PromptEditor.app
+	./build.sh && open -n build/PromptEditor.app
 
 clean:
 	cd core && cargo clean

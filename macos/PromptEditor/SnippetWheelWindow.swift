@@ -13,6 +13,7 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
     private let wheelRadius: CGFloat = 200
     private var clickMonitor: Any?
     private var snippetData: String = ""
+    private var locale: String = "en"
     
     public override init() {
         // Calculate window size - needs to fit the wheel
@@ -150,6 +151,7 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                     border-radius: 20px;
                     cursor: default;
                     pointer-events: auto;
+                    color: #f5f5f7;
                 }
                 
                 .snippet-wheel-breadcrumb {
@@ -404,6 +406,8 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                         inset 0 1px 0 rgba(255, 255, 255, 0.1);
                     backdrop-filter: blur(10px);
                     z-index: 5;
+                    color: #f5f5f7;
+                    font: inherit;
                 }
                 
                 @media (prefers-color-scheme: light) {
@@ -413,6 +417,7 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                         box-shadow: 
                             0 4px 15px rgba(0, 0, 0, 0.1), 
                             inset 0 1px 0 rgba(255, 255, 255, 0.8);
+                        color: #1d1d1f;
                     }
                 }
                 
@@ -430,11 +435,13 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                 
                 .wheel-item.category {
                     background: linear-gradient(135deg, rgba(60,60,60,0.95) 0%, rgba(45,45,45,0.95) 100%);
+                    color: #f5f5f7;
                 }
                 
                 @media (prefers-color-scheme: light) {
                     .wheel-item.category {
                         background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(245,245,247,0.95) 100%);
+                        color: #1d1d1f;
                     }
                 }
                 
@@ -453,11 +460,13 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                     background: transparent;
                     border: 2px dashed rgba(255, 255, 255, 0.2);
                     opacity: 0.8;
+                    color: #f5f5f7;
                 }
                 
                 @media (prefers-color-scheme: light) {
                     .wheel-item.back {
                         border-color: rgba(0, 0, 0, 0.2);
+                        color: #1d1d1f;
                     }
                 }
                 
@@ -476,25 +485,33 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                     font-size: 10px;
                     font-weight: 600;
                     line-height: 1.2;
-                    max-width: 70px;
+                    width: 70px;
                     overflow: hidden;
                     text-overflow: ellipsis;
-                    white-space: nowrap;
+                    white-space: normal;
+                    overflow-wrap: anywhere;
+                    display: -webkit-box;
+                    -webkit-box-orient: vertical;
+                    -webkit-line-clamp: 2;
                 }
                 
                 .wheel-item-desc {
                     font-size: 8px;
                     opacity: 0.8;
-                    max-width: 70px;
+                    width: 70px;
                     overflow: hidden;
                     text-overflow: ellipsis;
-                    white-space: nowrap;
+                    white-space: normal;
+                    overflow-wrap: anywhere;
+                    display: -webkit-box;
+                    -webkit-box-orient: vertical;
+                    -webkit-line-clamp: 2;
                     display: none;
                     margin-top: 2px;
                 }
                 
                 .wheel-item:hover .wheel-item-desc {
-                    display: block;
+                    display: -webkit-box;
                 }
             </style>
         </head>
@@ -510,6 +527,17 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                         Uint8Array.from(atob(SNIPPET_DATA_JSON), c => c.charCodeAt(0))
                     )
                 );
+                const LOCALE = '\(locale)';
+                const UI_TEXT = {
+                    zh: {
+                        Categories: '分类', Back: '返回', 'Go back': '返回上一级',
+                        'Prompt Snippets': '提示片段', 'Manage Snippets': '管理提示片段', 'Close': '关闭',
+                        'Select a category': '选择一个分类',
+                        'Select a category to start': '选择一个分类开始', Empty: '空分类',
+                        'No items in this category': '此分类暂无内容'
+                    }
+                };
+                const tx = (text) => LOCALE === 'zh' ? (UI_TEXT.zh[text] || text) : text;
                 
                 // Wheel state
                 let currentCategoryId = null;
@@ -623,9 +651,9 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                     // Add back button
                     currentItems.push({
                         id: 'back',
-                        name: 'Back',
+                        name: tx('Back'),
                         icon: '←',
-                        description: 'Go back',
+                        description: tx('Go back'),
                         type: 'back'
                     });
                     
@@ -664,14 +692,14 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                     const itemCount = currentItems.length;
                     
                     let wheelHTML = '<div class="snippet-wheel-container">';
-                    wheelHTML += '<div class="snippet-wheel-manage" id="manageBtn" title="Manage Snippets">⚙️</div>';
-                    wheelHTML += '<div class="snippet-wheel-close" id="closeBtn" title="Close">✕</div>';
+                    wheelHTML += `<div class="snippet-wheel-manage" id="manageBtn" title="${tx('Manage Snippets')}">⚙️</div>`;
+                    wheelHTML += `<div class="snippet-wheel-close" id="closeBtn" title="${tx('Close')}">✕</div>`;
                     wheelHTML += '<div class="snippet-wheel-breadcrumb" id="breadcrumb"></div>';
                     wheelHTML += '<div class="snippet-wheel">';
                     wheelHTML += '<div class="snippet-wheel-center" id="center">';
                     wheelHTML += '<div class="center-icon">🎯</div>';
-                    wheelHTML += '<div class="center-text">Prompt Snippets</div>';
-                    wheelHTML += '<div class="center-desc">Select a category<br>⚙️ to manage</div>';
+                    wheelHTML += `<div class="center-text">${tx('Prompt Snippets')}</div>`;
+                    wheelHTML += `<div class="center-desc">${tx('Select a category')}<br>⚙️ to manage</div>`;
                     wheelHTML += '</div></div></div>';
                     
                     root.innerHTML = wheelHTML;
@@ -751,7 +779,7 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                             centerEl.innerHTML = `<div class="center-icon">${cat.icon}</div><div class="center-text">${cat.name}</div><div class="center-desc">${cat.description}</div>`;
                         }
                     } else {
-                        centerEl.innerHTML = `<div class="center-icon">🎯</div><div class="center-text">Prompt Snippets</div><div class="center-desc">Select a category</div>`;
+                        centerEl.innerHTML = `<div class="center-icon">🎯</div><div class="center-text">${tx('Prompt Snippets')}</div><div class="center-desc">${tx('Select a category')}</div>`;
                     }
                 }
                 
@@ -787,12 +815,12 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
                     if (!breadcrumbEl) return;
                     
                     if (!currentCategoryId) {
-                        breadcrumbEl.innerHTML = '<span class="bc-root">Categories</span>';
+                        breadcrumbEl.innerHTML = `<span class="bc-root">${tx('Categories')}</span>`;
                         return;
                     }
                     
                     const path = getBreadcrumbPath(currentCategoryId);
-                    let html = '<span class="bc-root" data-id="">Categories</span>';
+                    let html = `<span class="bc-root" data-id="">${tx('Categories')}</span>`;
                     
                     path.forEach((cat, index) => {
                         html += ' <span class="bc-separator">›</span> ';
@@ -909,6 +937,10 @@ public class SnippetWheelWindow: NSObject, WKScriptMessageHandler {
         snippetData = json
         // Reload HTML with new data
         loadWheelHTML()
+    }
+
+    public func injectLocale(_ value: String) {
+        locale = value == "zh" ? "zh" : "en"
     }
     
     // MARK: - WKScriptMessageHandler

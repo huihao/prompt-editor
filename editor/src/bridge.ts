@@ -12,6 +12,7 @@ import { workspaceManager, Workspace } from './workspace-manager';
 import { terminalContext, TerminalContextData, ShellIntegrationStatus } from './terminal-context';
 import { historyStore, HistoryItem } from './history-store';
 import { createNativeClient } from './platform/create-native-client';
+import { getLocale } from './i18n';
 import {
   NativeClientError,
   type DetectedAgent,
@@ -76,7 +77,8 @@ interface NativeBridge {
   showHistory: () => void;
   hideHistory: () => void;
   getContent: () => string;
-  setContent: (text: string) => void;
+  setContent: (text: string, options?: { recordPrevious?: boolean }) => void;
+  getLocale: () => import('./i18n').Locale;
   init: (view: EditorView) => void;
   getHistory: () => HistoryItem[];
   addToHistory: (content: string, name?: string) => void;
@@ -148,6 +150,7 @@ export const bridge: NativeBridge = {
     (window as any).promptEditor = {
       getContent: () => bridge.getContent(),
       setContent: (text: string) => bridge.setContent(text),
+      getLocale: () => getLocale(),
       focus: () => view.focus(),
     };
     // Subscribe to terminal context updates and forward to bridge callback
@@ -163,8 +166,12 @@ export const bridge: NativeBridge = {
     return editorView.state.doc.toString();
   },
 
-  setContent(text: string) {
+  setContent(text: string, options: { recordPrevious?: boolean } = {}) {
     if (!editorView) return;
+    const previousContent = editorView.state.doc.toString();
+    if (options.recordPrevious !== false && previousContent && previousContent !== text) {
+      void historyStore.add(previousContent).catch(error => console.error('Failed to archive replaced content:', error));
+    }
     editorView.dispatch({
       changes: {
         from: 0,
@@ -172,6 +179,10 @@ export const bridge: NativeBridge = {
         insert: text,
       },
     });
+  },
+
+  getLocale() {
+    return getLocale();
   },
 
   async send(target?: SendTarget): Promise<void> {
@@ -328,7 +339,7 @@ export const bridge: NativeBridge = {
     if (!content.trim()) return;
     void historyStore.add(content, name).then(() => {
       // Clear the editor
-      bridge.setContent('');
+      bridge.setContent('', { recordPrevious: false });
       localStorage.removeItem('promptEditor:draft');
     }).catch(error => console.error('Failed to save history:', error));
   },
@@ -337,7 +348,7 @@ export const bridge: NativeBridge = {
     const history = historyStore.getHistory();
     const item = history.find(h => h.id === id);
     if (item && editorView) {
-      bridge.setContent(item.content);
+      bridge.setContent(item.content, { recordPrevious: false });
       bridge.hideHistory();
       editorView.focus();
     }
@@ -378,7 +389,7 @@ export const bridge: NativeBridge = {
   },
 
   clear() {
-    bridge.setContent('');
+    bridge.setContent('', { recordPrevious: false });
     localStorage.removeItem('promptEditor:draft');
     editorView?.focus();
   },

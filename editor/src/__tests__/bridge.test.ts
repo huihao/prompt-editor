@@ -64,6 +64,14 @@ describe('Bridge', () => {
       expect(bridge.getContent()).toBe('second');
     });
 
+    it('records replaced content in persistent history', async () => {
+      bridge.setContent('first prompt');
+      bridge.setContent('second prompt');
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      expect(bridge.getHistory().some(item => item.content === 'first prompt')).toBe(true);
+    });
+
     it('setContent handles empty string', () => {
       bridge.setContent('something');
       bridge.setContent('');

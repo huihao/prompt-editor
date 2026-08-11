@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { SnippetManagerUI } from '../snippet-manager-ui';
 import { snippetManager } from '../snippet-manager';
 import editorHTML from '../../index.html?raw';
@@ -185,5 +187,15 @@ describe('SnippetManagerUI interactions', () => {
     expect(darkManagerBlock).toContain('.snippet-manager-modal input');
     expect(darkManagerBlock).toContain('.snippet-manager-modal button');
     expect(darkManagerBlock).toContain('color: #b8b8bd;');
+  });
+
+  it('keeps native snippet wheel text readable and lets long labels wrap', () => {
+    const nativeWheel = readFileSync(resolve(process.cwd(), '../macos/PromptEditor/SnippetWheelWindow.swift'), 'utf8');
+
+    expect(nativeWheel).toContain('.wheel-item {');
+    expect(nativeWheel).toContain('color: #f5f5f7;');
+    expect(nativeWheel).toContain('.wheel-item.category');
+    expect(nativeWheel).toContain('white-space: normal;');
+    expect(nativeWheel).toContain('overflow-wrap: anywhere;');
   });
 });

@@ -23,6 +23,8 @@ const translations: Record<string, string> = {
   'Template Edit Mode (⌘⇧M)': '模板编辑模式 (⌘⇧M)',
   'File References @ (⌘⇧F)': '文件引用 @ (⌘⇧F)',
   'AI Enhance Prompt (⌘⇧E)': 'AI 优化提示词 (⌘⇧E)',
+  'Orchestrate Prompt': '编排提示词',
+  'Prompt Workflows': '提示词编排方案',
   'AI Settings': 'AI 设置',
   'Settings': '设置',
   'General': '通用',

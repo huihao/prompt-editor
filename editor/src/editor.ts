@@ -34,10 +34,14 @@ import { snippetManagerUI } from './snippet-manager-ui';
 import type { Snippet } from './snippet-manager';
 import { aiAutocomplete } from './ai-autocomplete';
 import { enhancePrompt } from './ai-enhance';
-import { showAISettingsModal } from './ai-config';
+import { showPromptOrchestration, showWorkflowManager } from './prompt-orchestration-ui';
+import { showSettings } from './settings-ui';
 import { historyStore } from './history-store';
 import { initPromptMemoryUI } from './prompt-memory-ui';
 import { SEND_FEATURE_ENABLED, hideSendFeatureUI } from './send-feature';
+import { initI18n } from './i18n';
+
+initI18n();
 
 const STORAGE_KEY = 'promptEditor:draft';
 
@@ -125,7 +129,7 @@ function navigateHistory(view: EditorView, direction: 'up' | 'down'): boolean {
         currentDraft = view.state.doc.toString();
       }
       historyIndex++;
-      bridge.setContent(history[historyIndex].content);
+      bridge.setContent(history[historyIndex].content, { recordPrevious: false });
       return true;
     }
   } else {
@@ -134,9 +138,9 @@ function navigateHistory(view: EditorView, direction: 'up' | 'down'): boolean {
       historyIndex--;
       if (historyIndex === -1) {
         // Back to current draft
-        bridge.setContent(currentDraft);
+        bridge.setContent(currentDraft, { recordPrevious: false });
       } else {
-        bridge.setContent(history[historyIndex].content);
+        bridge.setContent(history[historyIndex].content, { recordPrevious: false });
       }
       return true;
     }
@@ -684,10 +688,16 @@ document.getElementById('btn-ai-enhance')?.addEventListener('click', () => {
   enhancePrompt(view);
 });
 
-// AI Settings button
-document.getElementById('btn-ai-settings')?.addEventListener('click', () => {
-  showAISettingsModal();
+document.getElementById('btn-ai-orchestrate')?.addEventListener('click', () => {
+  showPromptOrchestration(view);
 });
+
+document.getElementById('btn-workflows')?.addEventListener('click', () => {
+  showWorkflowManager(view);
+});
+
+// Unified application settings
+document.getElementById('btn-settings')?.addEventListener('click', () => showSettings());
 
 // Snippets button (CS-style wheel)
 document.getElementById('btn-snippets')!.addEventListener('click', () => {
