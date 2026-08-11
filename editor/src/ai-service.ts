@@ -85,13 +85,16 @@ export function streamAIText(
           streamError = part.error instanceof Error ? part.error : new Error(String(part.error));
           break;
         } else if (part.type === 'finish') {
-          usage = {
-            inputTokens: part.usage.inputTokens,
-            outputTokens: part.usage.outputTokens,
-            cacheReadTokens: part.usage.inputTokenDetails.cacheReadTokens,
-            cacheWriteTokens: part.usage.inputTokenDetails.cacheWriteTokens,
-            noCacheTokens: part.usage.inputTokenDetails.noCacheTokens,
-          };
+          const finishUsage = part.usage;
+          if (finishUsage) {
+            usage = {
+              inputTokens: finishUsage.inputTokens,
+              outputTokens: finishUsage.outputTokens,
+              cacheReadTokens: finishUsage.inputTokenDetails?.cacheReadTokens,
+              cacheWriteTokens: finishUsage.inputTokenDetails?.cacheWriteTokens,
+              noCacheTokens: finishUsage.inputTokenDetails?.noCacheTokens,
+            };
+          }
         }
       }
 

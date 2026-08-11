@@ -172,4 +172,27 @@ describe('ai-service', () => {
     await new Promise(resolve => setTimeout(resolve, 0));
     expect(recordAIUsageMock).not.toHaveBeenCalled();
   });
+
+  it('finishes normally when a provider omits usage from the finish event', async () => {
+    streamTextMock.mockReturnValue({
+      fullStream: (async function* () {
+        yield { type: 'text-delta', text: 'result' };
+        yield { type: 'finish' };
+      })(),
+    });
+    const onDone = vi.fn();
+    const onError = vi.fn();
+
+    streamAIText(
+      [{ role: 'user', content: 'hello' }],
+      vi.fn(),
+      onDone,
+      onError,
+      config,
+      { feature: 'enhance' },
+    );
+
+    await vi.waitFor(() => expect(onDone).toHaveBeenCalledWith(undefined));
+    expect(onError).not.toHaveBeenCalled();
+  });
 });
