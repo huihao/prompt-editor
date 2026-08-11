@@ -1,6 +1,7 @@
 import type { EditorView } from '@codemirror/view';
 import { isAIConfigured } from './ai-config';
 import { streamAIText } from './ai-service';
+import { formatUsageLine } from './ai-usage';
 import {
   createWorkflowId,
   extractCompleteWorkflowStages,
@@ -145,6 +146,7 @@ function openWorkflowEditor(view: EditorView, sourcePrompt: string, initial?: Pr
       </div>
       <footer class="prompt-workflow-footer">
         <button id="prompt-workflow-regenerate" class="ai-btn-secondary" data-action="regenerate">Generate workflow</button>
+        <span id="prompt-workflow-usage" class="ai-usage-line" hidden></span>
         <span class="prompt-workflow-footer-spacer"></span>
         <button id="prompt-workflow-cancel" class="ai-btn-secondary" data-action="close">Cancel</button>
         <button id="prompt-workflow-save" class="ai-btn-primary" data-action="save" disabled>Save workflow</button>
@@ -165,6 +167,7 @@ function openWorkflowEditor(view: EditorView, sourcePrompt: string, initial?: Pr
   const titleInput = overlay.querySelector('#prompt-workflow-title') as HTMLInputElement;
   const saveButton = overlay.querySelector('#prompt-workflow-save') as HTMLButtonElement;
   const regenerateButton = overlay.querySelector('#prompt-workflow-regenerate') as HTMLButtonElement;
+  const usageEl = overlay.querySelector('#prompt-workflow-usage') as HTMLElement;
 
   const render = () => {
     if (!workflow) return;
@@ -195,6 +198,8 @@ function openWorkflowEditor(view: EditorView, sourcePrompt: string, initial?: Pr
     workflow = null;
     generationComplete = false;
     previewStageCount = 0;
+    usageEl.hidden = true;
+    usageEl.textContent = '';
     editorBody.hidden = true;
     status.hidden = false;
     status.className = 'prompt-workflow-status is-loading';
@@ -224,7 +229,7 @@ function openWorkflowEditor(view: EditorView, sourcePrompt: string, initial?: Pr
           // Keep rendering the last valid preview until another complete stage arrives.
         }
       },
-      () => {
+      (usage) => {
         try {
           workflow = parseWorkflowResponse(accumulated, sourcePrompt);
           generationComplete = true;
@@ -233,6 +238,11 @@ function openWorkflowEditor(view: EditorView, sourcePrompt: string, initial?: Pr
           status.hidden = false;
           status.className = 'prompt-workflow-status is-error';
           status.textContent = error instanceof Error ? error.message : String(error);
+        }
+        const usageLine = formatUsageLine(usage);
+        if (usageLine) {
+          usageEl.textContent = usageLine;
+          usageEl.hidden = false;
         }
         regenerateButton.disabled = false;
         abortController = null;
@@ -244,6 +254,8 @@ function openWorkflowEditor(view: EditorView, sourcePrompt: string, initial?: Pr
         regenerateButton.disabled = false;
         abortController = null;
       },
+      undefined,
+      { feature: 'orchestration' },
     );
     abortController = controller;
   };

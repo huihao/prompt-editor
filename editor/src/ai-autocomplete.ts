@@ -213,6 +213,8 @@ const ghostTextPlugin = ViewPlugin.fromClass(
           console.debug('[ai-autocomplete] suggestion error:', err.message);
           view.dispatch({ effects: setSuggestion.of(null) });
         },
+        undefined,
+        { feature: 'autocomplete' },
       );
     }
 

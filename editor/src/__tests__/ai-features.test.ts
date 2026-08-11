@@ -58,6 +58,21 @@ describe('AI features', () => {
     expect(view.state.doc.toString()).toBe('alpha better prompt gamma');
   });
 
+  it('shows provider-reported usage after enhancing', () => {
+    streamAITextMock.mockImplementation((_messages, onChunk, onDone) => {
+      onChunk('better prompt');
+      onDone({ inputTokens: 24, outputTokens: 18, cacheReadTokens: 12 });
+      return new AbortController();
+    });
+
+    enhancePrompt(createView('draft'));
+    document.querySelector<HTMLButtonElement>('#ai-enhance-generate')?.click();
+
+    expect(document.querySelector('#ai-enhance-usage')?.textContent).toContain('24 input');
+    expect(document.querySelector('#ai-enhance-usage')?.textContent).toContain('18 output');
+    expect(streamAITextMock.mock.calls[0][5]).toEqual({ feature: 'enhance' });
+  });
+
   it('shows autocomplete at the cursor instead of only at the end of the document', async () => {
     vi.useFakeTimers();
     const view = createView('alpha beta gamma', 16, 16);

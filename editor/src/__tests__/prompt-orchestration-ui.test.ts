@@ -116,6 +116,24 @@ describe('prompt orchestration UI', () => {
     expect(document.querySelector('.prompt-workflow-overlay')).toBeNull();
   });
 
+  it('shows provider-reported usage after generating a workflow', () => {
+    streamAITextMock.mockImplementation((_messages, onChunk, onDone) => {
+      onChunk(JSON.stringify({
+        title: 'Launch workflow',
+        stages: [{ prompts: [{ title: 'Research', content: 'Research the market.' }] }],
+      }));
+      onDone({ inputTokens: 36, outputTokens: 20, cacheReadTokens: 18 });
+      return new AbortController();
+    });
+
+    showPromptOrchestration(createView('Build a launch plan'));
+    (document.getElementById('prompt-workflow-regenerate') as HTMLButtonElement).click();
+
+    expect(document.querySelector('#prompt-workflow-usage')?.textContent).toContain('36 input');
+    expect(document.querySelector('#prompt-workflow-usage')?.textContent).toContain('20 output');
+    expect(streamAITextMock.mock.calls[0][5]).toEqual({ feature: 'orchestration' });
+  });
+
   it('hides the generation status after a valid workflow finishes', () => {
     streamAITextMock.mockImplementation((_messages, onChunk, onDone) => {
       onChunk(JSON.stringify({

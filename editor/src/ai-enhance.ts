@@ -4,6 +4,7 @@ import type { EditorView } from '@codemirror/view';
 import { streamAIText } from './ai-service';
 import { isAIConfigured } from './ai-config';
 import { showSettings } from './settings-ui';
+import { formatUsageLine } from './ai-usage';
 
 const ENHANCE_SYSTEM_PROMPT = `You are an expert prompt engineer. Your task is to expand and improve the given prompt to make it:
 - More specific and detailed
@@ -74,6 +75,7 @@ export function enhancePrompt(view: EditorView): void {
       </div>
       <div class="ai-enhance-footer">
         <button id="ai-enhance-generate" class="ai-btn-secondary">Enhance</button>
+        <span id="ai-enhance-usage" class="ai-usage-line" hidden></span>
         <div style="flex:1"></div>
         <button id="ai-enhance-cancel" class="ai-btn-secondary">Cancel</button>
         <button id="ai-enhance-apply" class="ai-btn-primary" disabled>Apply →</button>
@@ -92,10 +94,13 @@ export function enhancePrompt(view: EditorView): void {
   const cursorEl = overlay.querySelector('#ai-enhance-cursor') as HTMLElement;
   const applyBtn = overlay.querySelector('#ai-enhance-apply') as HTMLButtonElement;
   const generateBtn = overlay.querySelector('#ai-enhance-generate') as HTMLButtonElement;
+  const usageEl = overlay.querySelector('#ai-enhance-usage') as HTMLElement;
 
   function startGeneration() {
     accumulated = '';
     enhancedEl.textContent = '';
+    usageEl.hidden = true;
+    usageEl.textContent = '';
     statusEl.textContent = 'Generating...';
     statusEl.className = 'ai-enhance-status ai-status-generating';
     cursorEl.style.display = 'inline';
@@ -113,13 +118,18 @@ export function enhancePrompt(view: EditorView): void {
         // Auto-scroll to bottom
         enhancedEl.scrollTop = enhancedEl.scrollHeight;
       },
-      () => {
+      (usage) => {
         cursorEl.style.display = 'none';
         statusEl.textContent = '✓ Done';
         statusEl.className = 'ai-enhance-status ai-status-done';
         applyBtn.disabled = false;
         generateBtn.disabled = false;
         generateBtn.textContent = 'Regenerate';
+        const usageLine = formatUsageLine(usage);
+        if (usageLine) {
+          usageEl.textContent = usageLine;
+          usageEl.hidden = false;
+        }
         abortCtrl = null;
       },
       (err) => {
@@ -130,6 +140,8 @@ export function enhancePrompt(view: EditorView): void {
         generateBtn.textContent = 'Regenerate';
         abortCtrl = null;
       },
+      undefined,
+      { feature: 'enhance' },
     );
   }
 
