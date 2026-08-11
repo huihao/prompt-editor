@@ -451,6 +451,23 @@
     .prompt-workflow-footer-spacer { flex: 1; }
     .ai-usage-line { font-size: 11px; opacity: 0.7; white-space: nowrap; }
     .ai-usage-line[hidden] { display: none; }
+    .ai-usage-section { border-top: 1px solid var(--border, #e5e5e5); margin-top: 16px; padding-top: 16px; }
+    .ai-usage-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .ai-usage-heading h3, .ai-usage-breakdown h4, .ai-usage-days h4 { font-size: 12px; margin: 0; }
+    .ai-usage-heading .ai-btn-secondary { font-size: 11px; padding: 4px 7px; }
+    .ai-usage-summary { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 9px; font-size: 11px; }
+    .ai-usage-summary strong { font-variant-numeric: tabular-nums; }
+    .ai-usage-empty { margin-top: 8px; font-size: 12px; opacity: 0.65; }
+    .ai-usage-breakdown { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+    .ai-usage-breakdown ul { list-style: none; margin: 7px 0 0; padding: 0; font-size: 11px; }
+    .ai-usage-breakdown li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; }
+    .ai-usage-breakdown li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ai-usage-days { margin-top: 14px; }
+    .ai-usage-table-wrap { max-height: 160px; margin-top: 7px; overflow: auto; border: 1px solid var(--border, #e5e5e5); border-radius: 5px; }
+    .ai-usage-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .ai-usage-table th, .ai-usage-table td { padding: 5px 7px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--border, #e5e5e5); }
+    .ai-usage-table th:first-child, .ai-usage-table td:first-child { text-align: left; }
+    .ai-usage-table th { position: sticky; top: 0; background: var(--bg, #fff); }
     .prompt-workflow-manager { height: min(620px, 82vh); max-width: 820px; }
     .prompt-workflow-manager-list { flex: 1; min-height: 0; overflow: auto; padding: 10px 18px 18px; }
     .prompt-workflow-manager-item { padding: 12px 0; border-bottom: 1px solid var(--border, #e5e5e5); }
@@ -463,6 +480,8 @@
       #toolbar button.ai-orchestrate-btn:hover { background: rgba(99,230,190,0.12); border-color: #63e6be; }
       .prompt-workflow-modal, .prompt-workflow-card { background: #1e1e1e; border-color: #3e3e3e; }
       .prompt-workflow-source, .prompt-workflow-stage { background: #272727; border-color: #3e3e3e; }
+      .ai-usage-section, .ai-usage-table-wrap, .ai-usage-table th, .ai-usage-table td { border-color: #3e3e3e; }
+      .ai-usage-table th { background: #1e1e1e; }
       .prompt-workflow-title-field input, .prompt-workflow-card input, .prompt-workflow-card textarea {
         color: #f5f5f7; background: #1e1e1e; border-color: #4a4a4a;
       }
@@ -474,6 +493,7 @@
       .prompt-workflow-modal { width: 100%; height: 94vh; }
       .prompt-workflow-header, .prompt-workflow-footer { padding-left: 12px; padding-right: 12px; }
       .ai-usage-line { white-space: normal; }
+      .ai-usage-breakdown { grid-template-columns: 1fr; }
       .prompt-workflow-source, .prompt-workflow-editor-body { padding-left: 12px; padding-right: 12px; }
       .prompt-workflow-manager-item { align-items: flex-start; }
       .prompt-workflow-manager-actions { flex-wrap: wrap; justify-content: flex-end; }

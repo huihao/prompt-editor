@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AI_PROVIDER_OPTIONS,
   BUILT_IN_MODELS,
   getDefaultAIModel,
   mountAISettingsPanel,
 } from '../ai-config';
+import { getAIUsageSummary, recordAIUsage } from '../ai-usage';
 
 describe('AI settings catalog', () => {
   beforeEach(() => {
@@ -89,5 +90,35 @@ describe('AI settings catalog', () => {
     expect(modelCustom.value).toBe('deepseek-v4-flash');
     expect(container.querySelector<HTMLElement>('#ai-baseurl-field')?.style.display).toBe('');
     expect(container.querySelector<HTMLInputElement>('#ai-baseurl-input')?.value).toBe('https://api.deepseek.com');
+  });
+
+  it('renders aggregate token usage and clears records after confirmation', () => {
+    recordAIUsage({
+      timestamp: Date.now(),
+      feature: 'enhance',
+      provider: 'openai',
+      model: 'gpt-5.6',
+      inputTokens: 30,
+      outputTokens: 10,
+      cacheReadTokens: 15,
+    });
+    const confirmMock = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const container = document.createElement('div');
+
+    mountAISettingsPanel(container);
+
+    expect(container.querySelector('#ai-usage-summary')?.textContent).toContain('40');
+    expect(container.querySelector('#ai-usage-summary')?.textContent).toContain('50%');
+    container.querySelector<HTMLButtonElement>('#ai-clear-usage')?.click();
+    expect(getAIUsageSummary().recordCount).toBe(0);
+    expect(confirmMock).toHaveBeenCalled();
+  });
+
+  it('shows an empty usage state without inventing a cache rate', () => {
+    const container = document.createElement('div');
+
+    mountAISettingsPanel(container);
+
+    expect(container.querySelector('#ai-usage-summary')?.textContent).toContain('No usage recorded in the last 30 days.');
   });
 });

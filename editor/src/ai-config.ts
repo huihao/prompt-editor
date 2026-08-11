@@ -1,5 +1,7 @@
 // AI Provider Configuration & Settings Modal
 
+import { clearAIUsage, formatTokenCount, getAIUsageSummary } from './ai-usage';
+
 export type AIProvider =
   | 'openai'
   | 'anthropic'
@@ -310,6 +312,7 @@ export function mountAISettingsPanel(
           <label>Enable AI features</label>
           <input type="checkbox" id="ai-enabled-toggle"${config.enabled ? ' checked' : ''} />
         </div>
+        <div class="ai-usage-section" id="ai-usage-section">${renderAIUsageSection()}</div>
         <div id="ai-test-result" class="ai-test-result" style="display:none"></div>
       </div>
       <div class="ai-settings-footer">
@@ -327,6 +330,7 @@ export function mountAISettingsPanel(
   const baseurlField = container.querySelector('#ai-baseurl-field') as HTMLElement;
   const apikeyInput = container.querySelector('#ai-apikey-input') as HTMLInputElement;
   const baseurlInput = container.querySelector('#ai-baseurl-input') as HTMLInputElement;
+  const usageSection = container.querySelector('#ai-usage-section') as HTMLElement;
 
   if (config.baseURL) {
     baseurlInput.value = config.baseURL;
@@ -368,6 +372,14 @@ export function mountAISettingsPanel(
   });
 
   providerSelect.addEventListener('change', updateProviderUI);
+
+  usageSection.addEventListener('click', event => {
+    const target = event.target as HTMLElement;
+    if (target.id !== 'ai-clear-usage') return;
+    if (!window.confirm('Clear all local AI usage statistics?')) return;
+    clearAIUsage();
+    usageSection.innerHTML = renderAIUsageSection();
+  });
 
   // API key visibility toggle
   container.querySelector('#ai-apikey-toggle')!.addEventListener('click', () => {
@@ -427,4 +439,45 @@ export function mountAISettingsPanel(
   });
 
   container.querySelector('#ai-cancel-btn')!.addEventListener('click', () => options.onCancel?.());
+}
+
+function renderAIUsageSection(): string {
+  const summary = getAIUsageSummary();
+  if (summary.recordCount === 0) {
+    return `<h3>Token usage</h3><div id="ai-usage-summary" class="ai-usage-empty">No usage recorded in the last 30 days.</div>`;
+  }
+
+  const { totals } = summary;
+  const cacheRate = summary.cacheHitRate === null
+    ? 'Cache data not reported by this provider.'
+    : `${Math.round(summary.cacheHitRate * 100)}% cache hit rate`;
+  const featureLabel: Record<string, string> = {
+    enhance: 'Prompt Enhance',
+    orchestration: 'Prompt Orchestration',
+    autocomplete: 'AI Autocomplete',
+  };
+  const formatGroups = (groups: typeof summary.byFeature, label: (key: string) => string) => groups
+    .map(group => `<li><span>${escapeHtml(label(group.key))}</span><strong>${formatTokenCount(group.totalTokens)}</strong></li>`)
+    .join('');
+  const dailyRows = summary.byDay.map(day => `
+    <tr><td>${day.date}</td><td>${formatTokenCount(day.inputTokens)}</td><td>${formatTokenCount(day.outputTokens)}</td><td>${formatTokenCount(day.totalTokens)}</td></tr>`).join('');
+
+  return `
+    <div class="ai-usage-heading"><h3>Token usage</h3><button id="ai-clear-usage" class="ai-btn-secondary" type="button">Clear usage data</button></div>
+    <div id="ai-usage-summary" class="ai-usage-summary">
+      <span><strong>${formatTokenCount(totals.inputTokens)}</strong> input</span>
+      <span><strong>${formatTokenCount(totals.outputTokens)}</strong> output</span>
+      <span><strong>${formatTokenCount(totals.totalTokens)}</strong> total</span>
+      <span><strong>${formatTokenCount(totals.cacheReadTokens)}</strong> cache read</span>
+      <span>${cacheRate}</span>
+    </div>
+    <div class="ai-usage-breakdown">
+      <div><h4>By feature</h4><ul>${formatGroups(summary.byFeature, key => featureLabel[key] ?? key)}</ul></div>
+      <div><h4>By model</h4><ul>${formatGroups(summary.byModel, key => key)}</ul></div>
+    </div>
+    <div class="ai-usage-days"><h4>Daily usage</h4><div class="ai-usage-table-wrap"><table class="ai-usage-table"><thead><tr><th>Date</th><th>Input</th><th>Output</th><th>Total</th></tr></thead><tbody>${dailyRows}</tbody></table></div></div>`;
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
