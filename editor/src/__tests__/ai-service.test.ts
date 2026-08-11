@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { streamAIText } from '../ai-service';
 
 const streamTextMock = vi.fn();
+const { recordAIUsageMock } = vi.hoisted(() => ({ recordAIUsageMock: vi.fn() }));
 
 vi.mock('ai', () => ({
   streamText: (...args: unknown[]) => streamTextMock(...args),
@@ -22,6 +23,10 @@ vi.mock('@ai-sdk/google', () => ({
 vi.mock('../ai-config', () => ({
   getAIConfig: () => null,
   getAIProviderDefinition: () => ({ defaultBaseURL: 'https://example.com/v1' }),
+}));
+
+vi.mock('../ai-usage', () => ({
+  recordAIUsage: (...args: unknown[]) => recordAIUsageMock(...args),
 }));
 
 describe('ai-service', () => {
@@ -82,5 +87,89 @@ describe('ai-service', () => {
     await vi.waitFor(() => expect(onError).toHaveBeenCalledWith(providerError));
     expect(onChunk).not.toHaveBeenCalled();
     expect(onDone).not.toHaveBeenCalled();
+    expect(recordAIUsageMock).not.toHaveBeenCalled();
+  });
+
+  it('records usage after a successful labeled stream', async () => {
+    streamTextMock.mockReturnValue({
+      fullStream: (async function* () {
+        yield { type: 'text-delta', text: 'result' };
+        yield {
+          type: 'finish',
+          usage: {
+            inputTokens: 40,
+            outputTokens: 12,
+            inputTokenDetails: { cacheReadTokens: 20, cacheWriteTokens: 4, noCacheTokens: 20 },
+          },
+        };
+      })(),
+    });
+    const onDone = vi.fn();
+
+    streamAIText(
+      [{ role: 'user', content: 'hello' }],
+      vi.fn(),
+      onDone,
+      vi.fn(),
+      config,
+      { feature: 'enhance' },
+    );
+
+    await vi.waitFor(() => expect(onDone).toHaveBeenCalledWith(expect.objectContaining({
+      inputTokens: 40,
+      outputTokens: 12,
+      cacheReadTokens: 20,
+    })));
+    expect(recordAIUsageMock).toHaveBeenCalledWith(expect.objectContaining({
+      feature: 'enhance',
+      provider: 'openai',
+      model: 'gpt-5.6',
+      inputTokens: 40,
+    }));
+  });
+
+  it('sets an ephemeral cache breakpoint on Anthropic system instructions', () => {
+    streamTextMock.mockReturnValue({ fullStream: (async function* () {})() });
+
+    streamAIText(
+      [{ role: 'system', content: 'Stable instruction' }, { role: 'user', content: 'Dynamic input' }],
+      vi.fn(),
+      vi.fn(),
+      vi.fn(),
+      { ...config, provider: 'anthropic' },
+    );
+
+    expect(streamTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      system: expect.objectContaining({
+        providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
+      }),
+    }));
+  });
+
+  it('does not record a stream cancelled before completion', async () => {
+    let release: (() => void) | undefined;
+    streamTextMock.mockReturnValue({
+      fullStream: (async function* () {
+        yield { type: 'text-delta', text: 'partial' };
+        await new Promise<void>(resolve => { release = resolve; });
+        yield { type: 'finish', usage: { inputTokens: 10, outputTokens: 2, inputTokenDetails: {} } };
+      })(),
+    });
+    recordAIUsageMock.mockClear();
+
+    const controller = streamAIText(
+      [{ role: 'user', content: 'hello' }],
+      vi.fn(),
+      vi.fn(),
+      vi.fn(),
+      config,
+      { feature: 'enhance' },
+    );
+    await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+    controller.abort();
+    release?.();
+
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(recordAIUsageMock).not.toHaveBeenCalled();
   });
 });

@@ -10,10 +10,23 @@ import {
   type AIConfig,
   type AIProvider,
 } from './ai-config';
+import { recordAIUsage, type AIUsageFeature } from './ai-usage';
 
 export interface AIMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
+}
+
+export interface AIRequestOptions {
+  feature?: AIUsageFeature;
+}
+
+export interface AIRequestUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  noCacheTokens?: number;
 }
 
 /**
@@ -23,9 +36,10 @@ export interface AIMessage {
 export function streamAIText(
   messages: AIMessage[],
   onChunk: (text: string) => void,
-  onDone: () => void,
+  onDone: (usage?: AIRequestUsage) => void,
   onError: (error: Error) => void,
   overrideConfig?: AIConfig,
+  options?: AIRequestOptions,
 ): AbortController {
   const abortController = new AbortController();
 
@@ -47,13 +61,20 @@ export function streamAIText(
 
       const result = streamText({
         model,
-        system: systemMsg,
+        system: config.provider === 'anthropic' && systemMsg
+          ? {
+              role: 'system',
+              content: systemMsg,
+              providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
+            }
+          : systemMsg,
         messages: chatMessages,
         abortSignal: abortController.signal,
       });
 
       let sawText = false;
       let streamError: Error | null = null;
+      let usage: AIRequestUsage | undefined;
       for await (const part of result.fullStream) {
         if (abortController.signal.aborted) break;
 
@@ -63,6 +84,14 @@ export function streamAIText(
         } else if (part.type === 'error') {
           streamError = part.error instanceof Error ? part.error : new Error(String(part.error));
           break;
+        } else if (part.type === 'finish') {
+          usage = {
+            inputTokens: part.usage.inputTokens,
+            outputTokens: part.usage.outputTokens,
+            cacheReadTokens: part.usage.inputTokenDetails.cacheReadTokens,
+            cacheWriteTokens: part.usage.inputTokenDetails.cacheWriteTokens,
+            noCacheTokens: part.usage.inputTokenDetails.noCacheTokens,
+          };
         }
       }
 
@@ -72,7 +101,16 @@ export function streamAIText(
       }
 
       if (!abortController.signal.aborted) {
-        onDone();
+        if (options?.feature) {
+          recordAIUsage({
+            timestamp: Date.now(),
+            feature: options.feature,
+            provider: config.provider,
+            model: config.model,
+            ...usage,
+          });
+        }
+        onDone(usage);
       }
     } catch (err: unknown) {
       if (abortController.signal.aborted) return;
