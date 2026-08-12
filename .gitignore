@@ -197,6 +197,9 @@ $RECYCLE.BIN/
 # Claude Code specific
 .claude/
 
+# Superpowers visual brainstorming sessions
+.superpowers/
+
 # Debug builds
 debug/
 release/
