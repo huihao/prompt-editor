@@ -35,7 +35,7 @@ jobs:
           test -n "$CERTIFICATE_PASSWORD"
           test -n "$KEYCHAIN_PASSWORD"
           KEYCHAIN="$RUNNER_TEMP/prompt-editor.keychain-db"
-          echo "$CERTIFICATE_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          echo "$CERTIFICATE_P12_BASE64" | base64 -D > "$RUNNER_TEMP/certificate.p12"
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security set-keychain-settings -lut 21600 "$KEYCHAIN"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
