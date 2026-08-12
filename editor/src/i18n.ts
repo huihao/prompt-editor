@@ -120,7 +120,6 @@ const translations: Record<string, string> = {
   'AI Autocomplete': 'AI 自动补全',
   'Prompt Orchestration': '提示词编排',
   'Use default': '使用默认版本',
-  'Custom': '自定义版本',
   'Reset to default': '恢复默认版本',
   'Prompt Enhance mode': '提示词优化模式',
   'AI Autocomplete mode': 'AI 自动补全模式',

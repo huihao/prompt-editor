@@ -16,7 +16,7 @@ vi.mock('../ai-config', () => ({
 }));
 
 vi.mock('../ai-prompts', () => ({
-  getAIPrompt: (...args: unknown[]) => getAIPromptMock(...args),
+  getAIPrompt: (feature: string) => getAIPromptMock(feature),
 }));
 
 vi.mock('../settings-ui', () => ({
