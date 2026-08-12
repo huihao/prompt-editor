@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ensure fully transparent pixels in every generated raster icon have zeroed RGB channels without changing visible or partially transparent pixels.
+**Goal:** Ensure every pixel outside the icon's rounded silhouette is fully transparent without changing internal translucent artwork or antialiased edges.
 
-**Architecture:** Add one dependency-free Swift/ImageIO utility with `normalize` and `check` operations. Integrate normalization into the existing generator before container assembly, and make the existing validator audit every generated transparent PNG.
+**Architecture:** Clip all SVG artwork to the existing rounded silhouette at the canonical vector source. Extend the existing Swift image inspector and shell validator to audit corner alpha, then regenerate all platform assets.
 
 **Tech Stack:** Swift, CoreGraphics, ImageIO, POSIX shell, `sips`, `iconutil`, existing icon scripts.
 
@@ -12,64 +12,54 @@
 
 ## File Map
 
-- `scripts/normalize-transparent-pixels.swift`: decode PNGs into RGBA, normalize alpha-zero pixels, atomically rewrite, and audit contamination.
-- `scripts/generate-icons.sh`: normalize all PNG outputs before ICNS/ICO assembly.
-- `scripts/validate-icons.sh`: audit transparent RGB data in every generated transparent PNG.
+- `assets/branding/prompt-forge.svg`: clip every visible layer to the rounded icon silhouette.
+- `scripts/inspect-image.swift`: expose corner alpha values for raster validation.
+- `scripts/validate-icons.sh`: require fully transparent corners in generated PNGs.
 - Generated icon files: deterministic outputs refreshed by the generator.
 
-### Task 1: Add the Transparent-Pixel Utility
+### Task 1: Add the Transparent-Corner Audit
 
 **Files:**
-- Create: `scripts/normalize-transparent-pixels.swift`
+- Modify: `scripts/inspect-image.swift`
 
-- [ ] **Step 1: Create a failing alpha-contamination fixture**
+- [ ] **Step 1: Verify the current master fails**
 
-Use Swift/CoreGraphics to create a 2x1 PNG whose first pixel is `(255, 255, 255, 0)` and second pixel is `(10, 20, 30, 128)` under a temporary directory.
+Run the new corner-alpha mode against the current generated master.
 
 - [ ] **Step 2: Verify the missing checker fails**
 
 Run:
 
 ```bash
-swift scripts/normalize-transparent-pixels.swift check "$fixture"
+swift scripts/inspect-image.swift --corner-alpha assets/branding/prompt-forge-1024.png
 ```
 
-Expected: failure because the utility does not exist yet.
+Expected before implementation: the command is unsupported; after adding inspection but before clipping, at least one corner alpha is nonzero.
 
-- [ ] **Step 3: Implement `check` and `normalize`**
+- [ ] **Step 2: Implement corner-alpha inspection**
 
-Decode through `CGImageSource`, render to a known RGBA byte buffer, count pixels with alpha zero and nonzero RGB, and fail `check` when the count is nonzero. For `normalize`, zero RGB only for alpha-zero pixels and write with `CGImageDestination` to a sibling temporary file before replacement.
+Decode through `CGImageSource`, render to a known RGBA buffer, and print alpha values at all four canvas corners.
 
-- [ ] **Step 4: Verify semantics and idempotency**
+- [ ] **Step 3: Add the failing shell validation**
 
-Run `check` before normalization, `normalize`, then `check` again. Hash the normalized file before and after a second normalization and require identical SHA-256 values. Confirm the partial-alpha pixel remains `(10, 20, 30, 128)`.
+Update `scripts/validate-icons.sh` to require `corner-alpha=0,0,0,0`, then run it against the current master and confirm it fails.
 
-### Task 2: Integrate Generation and Validation
+### Task 2: Clip and Regenerate Artwork
 
 **Files:**
-- Modify: `scripts/generate-icons.sh`
-- Modify: `scripts/validate-icons.sh`
+- Modify: `assets/branding/prompt-forge.svg`
 - Modify: generated PNG/ICNS/ICO assets as produced by the script
 
-- [ ] **Step 1: Add a reusable normalization call**
+- [ ] **Step 1: Add the shared rounded clip**
 
-After `sips` writes each PNG, run:
-
-```bash
-swift "$REPO_DIR/scripts/normalize-transparent-pixels.swift" normalize "$output"
-```
-
-Normalize the 1024 master and resized outputs before `iconutil` and ICO builders consume them.
-
-- [ ] **Step 2: Audit all transparent PNG outputs**
-
-Add every generated Linux, Windows, macOS, and website PNG to the validation loop and run:
+Define the clip in `defs` and wrap all visible artwork:
 
 ```bash
-swift "$REPO_DIR/scripts/normalize-transparent-pixels.swift" check "$image"
+<clipPath id="iconMask"><rect width="1024" height="1024" rx="224"/></clipPath>
+<g clip-path="url(#iconMask)">...</g>
 ```
 
-- [ ] **Step 3: Regenerate and validate assets**
+- [ ] **Step 2: Regenerate and validate assets**
 
 Run:
 
@@ -78,9 +68,9 @@ Run:
 ./scripts/validate-icons.sh
 ```
 
-Expected: both commands exit zero, all dimensions and container representations remain present, and no transparent RGB contamination is reported.
+Expected: both commands exit zero, all dimensions and container representations remain present, and every generated PNG reports four fully transparent corners.
 
-- [ ] **Step 4: Verify application packaging**
+- [ ] **Step 3: Verify application packaging**
 
 Run:
 
@@ -92,7 +82,7 @@ lipo build/PromptEditor.app/Contents/MacOS/PromptEditor -verify_arch arm64 x86_6
 
 Expected: Universal 2 application bundle contains the regenerated icon.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add scripts assets macos windows linux website

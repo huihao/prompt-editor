@@ -39,6 +39,22 @@ dimensions "$REPO_DIR/website/assets/brand/favicon-32.png" 32
 dimensions "$REPO_DIR/website/assets/brand/apple-touch-icon.png" 180
 dimensions "$REPO_DIR/website/assets/brand/prompt-forge-mark.png" 512
 
+swift "$REPO_DIR/scripts/inspect-image.swift" --corner-alpha \
+  "$REPO_DIR/assets/branding/prompt-forge-1024.png" \
+  "$REPO_DIR"/linux/icons/hicolor/*/apps/prompt-editor.png \
+  "$REPO_DIR/windows/icons/32x32.png" \
+  "$REPO_DIR/windows/icons/128x128.png" \
+  "$REPO_DIR/windows/icons/128x128@2x.png" \
+  "$REPO_DIR/windows/icons/icon.png" \
+  "$REPO_DIR/macos/PromptEditor/Resources/StatusBarIcon.png" \
+  "$REPO_DIR/macos/PromptEditor/Resources/StatusBarIcon@2x.png" \
+  "$REPO_DIR/website/assets/brand/favicon-16.png" \
+  "$REPO_DIR/website/assets/brand/favicon-32.png" \
+  "$REPO_DIR/website/assets/brand/apple-touch-icon.png" \
+  "$REPO_DIR/website/assets/brand/prompt-forge-mark.png" \
+  | awk -F= '$2 != "0,0,0,0" { print; invalid=1 } END { exit invalid }' \
+  || fail "generated icon corners are not fully transparent"
+
 test -f "$REPO_DIR/macos/PromptEditor/Resources/PromptEditor.icns" || fail "missing macOS ICNS"
 icns_info=$(swift "$REPO_DIR/scripts/inspect-image.swift" "$REPO_DIR/macos/PromptEditor/Resources/PromptEditor.icns")
 printf '%s\n' "$icns_info" | grep -q '1024x1024' || fail "ICNS lacks 1024 px representation"

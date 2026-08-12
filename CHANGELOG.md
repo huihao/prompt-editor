@@ -23,5 +23,6 @@ All notable changes are documented here. This project follows [Keep a Changelog]
 
 ### Fixed
 
+- Clipped icon artwork to the rounded app-icon silhouette so pixels outside it are fully transparent.
 - Linux GTK dependency versions now resolve consistently.
 - Removed an unused Windows dependency that prevented reproducible resolution.
