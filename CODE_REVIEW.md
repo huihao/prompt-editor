@@ -1,7 +1,7 @@
 # Prompt Editor Code Review
 
-Review date: 2026-08-12  
-Reviewed revision: `93a424f`  
+Review date: 2026-08-12
+Reviewed revision: `93a424f`
 Scope: every Git-tracked source, build, configuration, test, and documentation file. Generated output, dependencies, `.git`, and other worktrees are excluded.
 
 ## Executive Summary
