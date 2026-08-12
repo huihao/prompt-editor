@@ -82,7 +82,7 @@ lint:
 	cd core && cargo fmt -- --check
 	cd core && cargo clippy --all-targets --all-features -- -D warnings
 	$(MAKE) typecheck
-	cd macos && swift package dump-package >/dev/null
+	@if [ "$(UNAME_S)" = "Darwin" ]; then cd macos && swift package dump-package >/dev/null; fi
 
 coverage: coverage-editor coverage-core
 
