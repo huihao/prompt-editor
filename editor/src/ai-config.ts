@@ -1,6 +1,7 @@
 // AI Provider Configuration & Settings Modal
 
 import { clearAIUsage, formatTokenCount, getAIUsageSummary } from './ai-usage';
+import type { AIPromptSettings } from './ai-prompts';
 
 export type AIProvider =
   | 'openai'
@@ -42,6 +43,7 @@ export interface AIConfig {
   apiKey: string;
   baseURL?: string;
   enabled: boolean;
+  prompts?: AIPromptSettings;
 }
 
 const AI_PROVIDER_DEFINITIONS: Record<AIProvider, AIProviderDefinition> = {
