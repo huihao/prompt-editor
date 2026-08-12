@@ -5,7 +5,7 @@
  * 将占位符渲染为可交互的控件（输入框、下拉选择等）
  */
 
-import type { PromptTemplate, TemplateVariable, TemplateValues } from './template-types';
+import type { PromptTemplate, TemplateValue, TemplateVariable, TemplateValues } from './template-types';
 import { extractVariableDefinitions } from './template-parser';
 import { renderTemplate } from './template-renderer';
 
@@ -19,8 +19,8 @@ interface InlineEditorState {
 /** 控件渲染选项 */
 interface ControlRenderOptions {
   variable: TemplateVariable;
-  value: string | string[] | number;
-  onChange: (value: string | string[] | number) => void;
+  value: TemplateValue;
+  onChange: (value: TemplateValue) => void;
 }
 
 /**

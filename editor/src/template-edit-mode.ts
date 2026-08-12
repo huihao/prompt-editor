@@ -15,7 +15,7 @@ declare global {
 }
 import { EditorState, Extension, StateField, StateEffect } from '@codemirror/state';
 import { extractVariableDefinitions, replaceVariables } from './template/template-parser';
-import type { TemplateVariable, TemplateValues } from './template/template-types';
+import type { TemplateValue, TemplateVariable, TemplateValues } from './template/template-types';
 
 /** 模板编辑模式状态 */
 interface TemplateEditState {
@@ -233,8 +233,8 @@ function createRadio(variable: TemplateVariable, value: string, onChange: (val: 
 class TemplateControlWidget extends WidgetType {
   constructor(
     private variable: TemplateVariable,
-    private value: string | string[] | number,
-    private onChange: (val: string | string[] | number) => void
+    private value: TemplateValue,
+    private onChange: (val: TemplateValue) => void
   ) {
     super();
   }

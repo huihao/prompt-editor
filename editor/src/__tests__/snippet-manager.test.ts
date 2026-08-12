@@ -8,6 +8,7 @@ const builtIns = {
       id: 'built-in',
       name: 'Built in',
       icon: 'B',
+      description: '',
       snippets: [{ id: 'base', name: 'Base', description: '', content: 'base' }],
     },
   ],
@@ -44,7 +45,7 @@ describe('SnippetManager data semantics', () => {
   it('moves a custom snippet to another category without duplication', async () => {
     const manager = new SnippetManager();
     await manager.loadData();
-    await manager.addCategory({ id: 'target', name: 'Target', icon: 'T' });
+    await manager.addCategory({ id: 'target', name: 'Target', icon: 'T', description: '' });
     await manager.addSnippet({ id: 'mine', name: 'Mine', description: '', content: 'before' }, 'built-in');
 
     expect(await manager.updateSnippet('mine', { content: 'after' }, 'target')).toBe(true);

@@ -96,7 +96,7 @@ describe('ai-service', () => {
         yield { type: 'text-delta', text: 'result' };
         yield {
           type: 'finish',
-          usage: {
+          totalUsage: {
             inputTokens: 40,
             outputTokens: 12,
             inputTokenDetails: { cacheReadTokens: 20, cacheWriteTokens: 4, noCacheTokens: 20 },
@@ -152,7 +152,7 @@ describe('ai-service', () => {
       fullStream: (async function* () {
         yield { type: 'text-delta', text: 'partial' };
         await new Promise<void>(resolve => { release = resolve; });
-        yield { type: 'finish', usage: { inputTokens: 10, outputTokens: 2, inputTokenDetails: {} } };
+        yield { type: 'finish', totalUsage: { inputTokens: 10, outputTokens: 2, inputTokenDetails: {} } };
       })(),
     });
     recordAIUsageMock.mockClear();

@@ -8,9 +8,14 @@ import { BrowserNativeClient } from '../platform/browser-client';
 import {
   createNativeClient,
   runtimeFromWindow,
+  type NativeRuntime,
 } from '../platform/create-native-client';
 import { WKWebViewNativeClient } from '../platform/wkwebview-client';
 import { TauriNativeClient } from '../platform/tauri-client';
+
+const invokeMock = (): NonNullable<NativeRuntime['tauriInvoke']> => vi.fn(
+  async (_command: string, _args?: Record<string, unknown>) => undefined,
+) as unknown as NonNullable<NativeRuntime['tauriInvoke']>;
 
 describe('NativeClient contract', () => {
   it('exposes stable capabilities and typed unsupported errors', () => {
@@ -69,7 +74,7 @@ describe('WKWebViewNativeClient', () => {
   it('is selected before other native runtimes', () => {
     const client = createNativeClient({
       wkMessageHandler: { postMessage: vi.fn() },
-      tauriInvoke: vi.fn(),
+      tauriInvoke: invokeMock(),
       clipboardWrite: vi.fn(),
       callbackHost: {},
     });
@@ -187,7 +192,7 @@ describe('WKWebViewNativeClient', () => {
   });
 
   it('cleans up callbacks when posting to WKWebView throws', async () => {
-    const postMessage = vi.fn(() => {
+    const postMessage = vi.fn((_message: unknown): void => {
       throw new Error('Bridge unavailable');
     });
     const { callbackHost, client } = createWKClient(postMessage);
@@ -282,7 +287,7 @@ describe('TauriNativeClient', () => {
 
   it('is selected when WKWebView is absent', () => {
     const client = createNativeClient({
-      tauriInvoke: vi.fn(),
+      tauriInvoke: invokeMock(),
       clipboardWrite: vi.fn(),
     });
 

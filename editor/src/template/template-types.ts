@@ -100,8 +100,11 @@ export interface TemplateCategory {
   order?: number;
 }
 
+/** 单个模板填充值 */
+export type TemplateValue = string | string[] | number | boolean;
+
 /** 模板填充值 */
-export type TemplateValues = Record<string, string | string[] | number | boolean>;
+export type TemplateValues = Record<string, TemplateValue>;
 
 /** 解析后的变量（从模板内容中提取） */
 export interface ParsedVariable {
