@@ -110,12 +110,7 @@ impl PromptStore {
 
     /// List recent prompts (up to `limit`), most recent first.
     pub fn recent(&self, limit: usize) -> Vec<&Prompt> {
-        self.data
-            .prompts
-            .iter()
-            .rev()
-            .take(limit)
-            .collect()
+        self.data.prompts.iter().rev().take(limit).collect()
     }
 }
 
@@ -268,7 +263,9 @@ mod tests {
     #[test]
     fn test_unicode_content() {
         let mut store = temp_store();
-        let id = store.save("中文标题", "你好世界 🌍 Ελληνικά العربية").unwrap();
+        let id = store
+            .save("中文标题", "你好世界 🌍 Ελληνικά العربية")
+            .unwrap();
         let prompt = store.get(id).unwrap();
         assert_eq!(prompt.title, "中文标题");
         assert_eq!(prompt.content, "你好世界 🌍 Ελληνικά العربية");

@@ -1,16 +1,46 @@
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
+
 pub mod clipboard;
+pub mod file_scanner;
 pub mod markdown;
 pub mod storage;
-pub mod file_scanner;
 pub mod template_storage;
 
+use lazy_static::lazy_static;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
+#[cfg(test)]
+use std::path::PathBuf;
 use std::sync::Mutex;
-use lazy_static::lazy_static;
 
 lazy_static! {
-    static ref FILE_CACHE: Mutex<file_scanner::FileCache> = Mutex::new(file_scanner::FileCache::new());
+    static ref FILE_CACHE: Mutex<file_scanner::FileCache> =
+        Mutex::new(file_scanner::FileCache::new());
+}
+
+#[cfg(test)]
+lazy_static! {
+    static ref TEST_PROMPT_STORE_PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
+}
+
+#[cfg(test)]
+fn set_test_prompt_store_path(path: Option<PathBuf>) {
+    *TEST_PROMPT_STORE_PATH
+        .lock()
+        .expect("test prompt store lock") = path;
+}
+
+fn open_prompt_store() -> Result<storage::PromptStore, String> {
+    #[cfg(test)]
+    if let Some(path) = TEST_PROMPT_STORE_PATH
+        .lock()
+        .map_err(|error| error.to_string())?
+        .clone()
+    {
+        return storage::PromptStore::open(path);
+    }
+
+    storage::PromptStore::open_default()
 }
 
 /// Copy text to system clipboard. Returns 0 on success, -1 on error.
@@ -62,7 +92,7 @@ pub extern "C" fn pe_save_prompt(title: *const c_char, content: *const c_char) -
         }
     };
 
-    let mut store = match storage::PromptStore::open_default() {
+    let mut store = match open_prompt_store() {
         Ok(s) => s,
         Err(_) => return -1,
     };
@@ -113,14 +143,14 @@ pub extern "C" fn pe_scan_directory(path: *const c_char) -> *mut c_char {
             Err(_) => return std::ptr::null_mut(),
         }
     };
-    
+
     match file_scanner::scan_directory(path, None) {
         Ok(files) => {
             // Update cache
             if let Ok(mut cache) = FILE_CACHE.lock() {
                 cache.update(files.clone());
             }
-            
+
             // Return JSON
             match serde_json::to_string(&files) {
                 Ok(json) => CString::new(json).unwrap_or_default().into_raw(),
@@ -144,7 +174,7 @@ pub extern "C" fn pe_read_file(path: *const c_char) -> *mut c_char {
             Err(_) => return std::ptr::null_mut(),
         }
     };
-    
+
     match file_scanner::read_file(path) {
         Ok(content) => CString::new(content).unwrap_or_default().into_raw(),
         Err(_) => std::ptr::null_mut(),
@@ -164,7 +194,7 @@ pub extern "C" fn pe_search_files(query: *const c_char) -> *mut c_char {
             Err(_) => return std::ptr::null_mut(),
         }
     };
-    
+
     if let Ok(cache) = FILE_CACHE.lock() {
         let results: Vec<&file_scanner::FileInfo> = cache.search(query);
         match serde_json::to_string(&results) {
@@ -196,7 +226,7 @@ pub extern "C" fn pe_clear_file_cache() {
 
 // MARK: Template Storage FFI
 
-use template_storage::{TemplateStore, DataSourceStore, PromptTemplate, DataSource};
+use template_storage::{DataSource, DataSourceStore, PromptTemplate, TemplateStore};
 
 static TEMPLATE_STORE: std::sync::Mutex<Option<TemplateStore>> = std::sync::Mutex::new(None);
 static DATASOURCE_STORE: std::sync::Mutex<Option<DataSourceStore>> = std::sync::Mutex::new(None);
@@ -209,7 +239,8 @@ fn get_template_store() -> Result<std::sync::MutexGuard<'static, Option<Template
     Ok(store)
 }
 
-fn get_datasource_store() -> Result<std::sync::MutexGuard<'static, Option<DataSourceStore>>, String> {
+fn get_datasource_store() -> Result<std::sync::MutexGuard<'static, Option<DataSourceStore>>, String>
+{
     let mut store = DATASOURCE_STORE.lock().map_err(|e| e.to_string())?;
     if store.is_none() {
         *store = Some(DataSourceStore::open_default()?);
@@ -383,6 +414,7 @@ pub extern "C" fn pe_delete_data_source(id: *const c_char) -> i32 {
 mod tests {
     use super::*;
     use std::ffi::CString;
+    use tempfile::TempDir;
 
     // MARK: pe_clipboard_copy / pe_clipboard_get
 
@@ -393,6 +425,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires an interactive system clipboard; run with cargo test clipboard -- --ignored --test-threads=1"]
     fn test_ffi_clipboard_roundtrip() {
         let text = CString::new("FFI clipboard test").unwrap();
         let result = pe_clipboard_copy(text.as_ptr());
@@ -406,6 +439,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires an interactive system clipboard; run with cargo test clipboard -- --ignored --test-threads=1"]
     fn test_ffi_clipboard_copy_empty() {
         let text = CString::new("").unwrap();
         let result = pe_clipboard_copy(text.as_ptr());
@@ -413,6 +447,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires an interactive system clipboard; run with cargo test clipboard -- --ignored --test-threads=1"]
     fn test_ffi_clipboard_unicode() {
         let text = CString::new("你好 🌍").unwrap();
         let result = pe_clipboard_copy(text.as_ptr());
@@ -489,10 +524,14 @@ mod tests {
 
     #[test]
     fn test_ffi_save_prompt_success() {
+        let temp_dir = TempDir::new().unwrap();
+        set_test_prompt_store_path(Some(temp_dir.path().join("prompts.json")));
         let title = CString::new("FFI Test").unwrap();
         let content = CString::new("FFI content").unwrap();
         let result = pe_save_prompt(title.as_ptr(), content.as_ptr());
         assert!(result > 0);
+        assert!(temp_dir.path().join("prompts.json").is_file());
+        set_test_prompt_store_path(None);
     }
 
     // MARK: pe_free_string

@@ -1,4 +1,4 @@
-.PHONY: all core editor macos windows linux clean test test-core test-editor test-macos run
+.PHONY: all core editor macos macos-core-library windows linux clean test test-core test-editor test-macos test-clipboard typecheck lint coverage coverage-core coverage-editor verify run
 
 # Detect OS
 UNAME_S := $(shell uname -s)
@@ -17,7 +17,11 @@ endif
 all: core editor $(TARGET)
 
 core:
-	cd core && cargo build --release
+	cd core && cargo build --release --locked
+
+macos-core-library: core
+	cp core/target/release/libprompt_editor_core.a macos/Libraries/
+	cp core/include/prompt_editor.h macos/Libraries/
 
 core-universal:
 	@echo "Building universal binary for macOS..."
@@ -68,8 +72,36 @@ test-core:
 test-editor:
 	cd editor && $(PNPM) test
 
-test-macos:
+test-macos: macos-core-library
 	cd macos && swift test
+
+test-clipboard:
+	cd core && cargo test clipboard -- --ignored --test-threads=1
+
+typecheck:
+	cd editor && $(PNPM) typecheck
+
+lint:
+	cd core && cargo fmt -- --check
+	cd core && cargo clippy --all-targets --all-features -- -D warnings
+	$(MAKE) typecheck
+	cd macos && swift package dump-package >/dev/null
+
+coverage: coverage-editor coverage-core
+
+coverage-editor:
+	cd editor && $(PNPM) coverage
+
+coverage-core:
+	@command -v cargo-llvm-cov >/dev/null 2>&1 || { \
+		echo "cargo llvm-cov is required for Rust coverage." >&2; \
+		echo "Install it with: cargo install cargo-llvm-cov --locked" >&2; \
+		exit 1; \
+	}
+	mkdir -p core/coverage
+	cd core && cargo llvm-cov --all-features --workspace --lcov --output-path coverage/lcov.info
+
+verify: lint test editor
 
 run: all
 	./build.sh && open -n build/PromptEditor.app

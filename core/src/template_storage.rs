@@ -8,20 +8,15 @@ use std::fs;
 use std::path::PathBuf;
 
 /// 变量类型
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum VariableType {
+    #[default]
     Text,
     Textarea,
     Select,
     Multiselect,
     Number,
-}
-
-impl Default for VariableType {
-    fn default() -> Self {
-        VariableType::Text
-    }
 }
 
 /// 数据源项
@@ -34,17 +29,12 @@ pub struct DataSourceItem {
 }
 
 /// 数据源类型
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum DataSourceType {
+    #[default]
     Static,
     Dynamic,
-}
-
-impl Default for DataSourceType {
-    fn default() -> Self {
-        DataSourceType::Static
-    }
 }
 
 /// 数据源定义
@@ -252,7 +242,7 @@ impl TemplateStore {
     /// 从JSON字符串导入
     pub fn import_json(&mut self, json: &str) -> Result<(), String> {
         let data: TemplateStoreData = serde_json::from_str(json).map_err(|e| e.to_string())?;
-        
+
         // 合并导入的数据，避免重复
         for template in data.templates {
             if self.get(&template.id).is_none() {
@@ -363,7 +353,7 @@ impl DataSourceStore {
     /// 从JSON字符串导入
     pub fn import_json(&mut self, json: &str) -> Result<(), String> {
         let data: DataSourceStoreData = serde_json::from_str(json).map_err(|e| e.to_string())?;
-        
+
         // 合并导入的数据
         for ds in data.data_sources {
             if self.get(&ds.id).is_none() {
@@ -515,10 +505,7 @@ mod tests {
     #[test]
     fn test_template_store_persistence() {
         let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let path = env::temp_dir().join(format!(
-            "prompt_editor_persist_test_{}.json",
-            id
-        ));
+        let path = env::temp_dir().join(format!("prompt_editor_persist_test_{}.json", id));
         let _ = fs::remove_file(&path);
 
         // 保存

@@ -20,9 +20,7 @@ pub fn to_plain_text(markdown: &str) -> String {
         match event {
             pulldown_cmark::Event::Text(t) => text.push_str(&t),
             pulldown_cmark::Event::Code(c) => text.push_str(&c),
-            pulldown_cmark::Event::SoftBreak | pulldown_cmark::Event::HardBreak => {
-                text.push('\n')
-            }
+            pulldown_cmark::Event::SoftBreak | pulldown_cmark::Event::HardBreak => text.push('\n'),
             _ => {}
         }
     }
