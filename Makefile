@@ -1,4 +1,4 @@
-.PHONY: all core editor macos macos-core-library windows linux clean test test-core test-editor test-macos test-clipboard typecheck lint coverage coverage-core coverage-editor verify run
+.PHONY: all core editor macos macos-core-library package-macos windows linux clean test test-core test-editor test-macos test-clipboard typecheck lint coverage coverage-core coverage-editor verify run
 
 # Detect OS
 UNAME_S := $(shell uname -s)
@@ -39,15 +39,12 @@ core-universal:
 editor:
 	cd editor && $(PNPM) install --frozen-lockfile && $(PNPM) build
 
-macos: core-universal editor
-	cp core/target/release/libprompt_editor_core.a macos/Libraries/
-	cp core/include/prompt_editor.h macos/Libraries/
-	cd macos && arch -arm64 swift build -c release
-	rm -rf build/PromptEditor.app
-	mkdir -p build/PromptEditor.app/Contents/MacOS build/PromptEditor.app/Contents/Resources
-	cp macos/.build/release/PromptEditor build/PromptEditor.app/Contents/MacOS/
-	cp macos/PromptEditor/Info.plist build/PromptEditor.app/Contents/
-	cp editor/dist/index.html build/PromptEditor.app/Contents/Resources/editor.html
+macos:
+	./scripts/build-macos.sh
+
+package-macos:
+	@test -n "$(VERSION)" || { echo "usage: make package-macos VERSION=0.1.0" >&2; exit 2; }
+	./scripts/package-macos.sh "$(VERSION)"
 
 windows: core editor
 	cd windows && cargo build --release
