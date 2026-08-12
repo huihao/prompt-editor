@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="160" viewBox="0 0 640 160" role="img" aria-labelledby="title">
+  <title id="title">Prompt Editor</title>
+  <defs>
+    <linearGradient id="field" x1="0" y1="0" x2="144" y2="144" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6657F5"/>
+      <stop offset="0.52" stop-color="#A64DDD"/>
+      <stop offset="1" stop-color="#F04F88"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(8 8)">
+    <rect width="144" height="144" rx="32" fill="url(#field)"/>
+    <g transform="rotate(-6 65 73)">
+      <path d="M42 31H86L105 50V113H42Z" fill="#FFF"/>
+      <path d="M86 31L105 50H94C90 50 86 46 86 42Z" fill="#E9E7FF"/>
+      <rect x="55" y="61" width="34" height="5" rx="2.5" fill="#7258E7"/>
+      <rect x="55" y="76" width="39" height="5" rx="2.5" fill="#E7619B"/>
+      <rect x="55" y="91" width="26" height="5" rx="2.5" fill="#7258E7"/>
+    </g>
+    <g transform="rotate(-43 101 103)">
+      <rect x="72" y="98" width="59" height="11" rx="5.5" fill="#302052"/>
+      <path d="M120 98H126C129 98 131 100 131 103.5S129 109 126 109H120Z" fill="#FFF39A"/>
+    </g>
+    <path d="M113 18C116 31 119 34 132 37C119 40 116 43 113 56C110 43 107 40 94 37C107 34 110 31 113 18Z" fill="#FFF39A"/>
+  </g>
+  <text x="184" y="103" fill="#202126" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="64" font-weight="700" letter-spacing="0">Prompt <tspan fill="#8E50E3">Editor</tspan></text>
+</svg>
