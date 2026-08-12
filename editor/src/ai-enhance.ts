@@ -88,6 +88,7 @@ export function enhancePrompt(view: EditorView): void {
 
   let accumulated = '';
   let abortCtrl: AbortController | null = null;
+  let renderFrame: number | null = null;
 
   const statusEl = overlay.querySelector('#ai-enhance-status') as HTMLElement;
   const enhancedEl = overlay.querySelector('#ai-diff-enhanced') as HTMLElement;
@@ -95,6 +96,33 @@ export function enhancePrompt(view: EditorView): void {
   const applyBtn = overlay.querySelector('#ai-enhance-apply') as HTMLButtonElement;
   const generateBtn = overlay.querySelector('#ai-enhance-generate') as HTMLButtonElement;
   const usageEl = overlay.querySelector('#ai-enhance-usage') as HTMLElement;
+
+  function renderAccumulated(): void {
+    enhancedEl.textContent = accumulated;
+    enhancedEl.scrollTop = enhancedEl.scrollHeight;
+  }
+
+  function scheduleRender(): void {
+    if (renderFrame !== null) return;
+    renderFrame = requestAnimationFrame(() => {
+      renderFrame = null;
+      renderAccumulated();
+    });
+  }
+
+  function flushRender(): void {
+    if (renderFrame !== null) {
+      cancelAnimationFrame(renderFrame);
+      renderFrame = null;
+    }
+    renderAccumulated();
+  }
+
+  function waitForRender(): Promise<void> {
+    return new Promise(resolve => {
+      requestAnimationFrame(() => resolve());
+    });
+  }
 
   function startGeneration() {
     accumulated = '';
@@ -112,13 +140,13 @@ export function enhancePrompt(view: EditorView): void {
         { role: 'system', content: ENHANCE_SYSTEM_PROMPT },
         { role: 'user', content: content },
       ],
-      (chunk) => {
+      async (chunk) => {
         accumulated += chunk;
-        enhancedEl.textContent = accumulated;
-        // Auto-scroll to bottom
-        enhancedEl.scrollTop = enhancedEl.scrollHeight;
+        scheduleRender();
+        await waitForRender();
       },
       (usage) => {
+        flushRender();
         cursorEl.style.display = 'none';
         statusEl.textContent = '✓ Done';
         statusEl.className = 'ai-enhance-status ai-status-done';
@@ -133,6 +161,7 @@ export function enhancePrompt(view: EditorView): void {
         abortCtrl = null;
       },
       (err) => {
+        flushRender();
         cursorEl.style.display = 'none';
         statusEl.textContent = `✗ ${err.message}`;
         statusEl.className = 'ai-enhance-status ai-status-error';
@@ -162,6 +191,7 @@ export function enhancePrompt(view: EditorView): void {
   // Cancel / close
   function closeOverlay() {
     if (abortCtrl) abortCtrl.abort();
+    if (renderFrame !== null) cancelAnimationFrame(renderFrame);
     overlay.remove();
     if (enhanceOverlay === overlay) enhanceOverlay = null;
     view.focus();

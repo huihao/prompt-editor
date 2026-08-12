@@ -35,7 +35,7 @@ export interface AIRequestUsage {
  */
 export function streamAIText(
   messages: AIMessage[],
-  onChunk: (text: string) => void,
+  onChunk: (text: string) => void | Promise<void>,
   onDone: (usage?: AIRequestUsage) => void,
   onError: (error: Error) => void,
   overrideConfig?: AIConfig,
@@ -80,7 +80,7 @@ export function streamAIText(
 
         if (part.type === 'text-delta') {
           sawText = true;
-          onChunk(part.text);
+          await onChunk(part.text);
         } else if (part.type === 'error') {
           streamError = part.error instanceof Error ? part.error : new Error(String(part.error));
           break;

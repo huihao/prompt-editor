@@ -73,6 +73,28 @@ describe('AI features', () => {
     expect(streamAITextMock.mock.calls[0][5]).toEqual({ feature: 'enhance' });
   });
 
+  it('renders streamed enhance chunks on the next animation frame', () => {
+    let onChunk: ((chunk: string) => void) | undefined;
+    streamAITextMock.mockImplementation((_messages, chunkCallback) => {
+      onChunk = chunkCallback;
+      return new AbortController();
+    });
+    const frameCallbacks: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      frameCallbacks.push(callback);
+      return frameCallbacks.length;
+    });
+
+    enhancePrompt(createView('draft'));
+    document.querySelector<HTMLButtonElement>('#ai-enhance-generate')?.click();
+    onChunk?.('partial');
+
+    expect(document.querySelector('#ai-diff-enhanced')?.textContent).toBe('');
+    frameCallbacks.pop()?.(0);
+    frameCallbacks.pop()?.(0);
+    expect(document.querySelector('#ai-diff-enhanced')?.textContent).toBe('partial');
+  });
+
   it('shows autocomplete at the cursor instead of only at the end of the document', async () => {
     vi.useFakeTimers();
     const view = createView('alpha beta gamma', 16, 16);
