@@ -584,6 +584,29 @@
     }
     .ai-settings-toggle { flex-direction: row !important; align-items: center; justify-content: space-between; }
     .ai-settings-toggle label { text-transform: none !important; font-size: 13px !important; opacity: 1 !important; }
+    .ai-prompt-settings { border-top: 1px solid var(--border, #e5e5e5); padding-top: 14px; }
+    .ai-prompt-settings h3 { margin: 0 0 10px; font-size: 13px; }
+    .ai-prompt-editors { display: grid; gap: 10px; }
+    .ai-prompt-editor {
+      display: grid; gap: 7px; padding: 10px;
+      border: 1px solid var(--border, #e5e5e5); border-radius: 7px;
+    }
+    .ai-prompt-editor-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .ai-prompt-editor-heading label { font-size: 13px; font-weight: 600; }
+    .ai-prompt-editor-heading select {
+      min-width: 132px; padding: 6px 9px; font-size: 12px;
+      background: var(--btn-bg, #f5f5f7); color: var(--fg, #1d1d1f);
+      border: 1px solid var(--border, #e5e5e5); border-radius: 7px;
+    }
+    .ai-prompt-editor textarea {
+      box-sizing: border-box; width: 100%; min-height: 112px; resize: vertical;
+      padding: 8px 10px; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: var(--btn-bg, #f5f5f7); color: var(--fg, #1d1d1f);
+      border: 1px solid var(--border, #e5e5e5); border-radius: 7px; outline: none;
+    }
+    .ai-prompt-editor textarea:focus { border-color: #a855f7; }
+    .ai-prompt-editor textarea:disabled { opacity: 0.7; cursor: default; }
+    .ai-prompt-editor > button { justify-self: start; }
     .ai-test-result {
       padding: 9px 12px; border-radius: 7px; font-size: 12px; font-weight: 500;
     }
@@ -614,7 +637,9 @@
       .settings-tabs button.active { background: #3a3a3a; }
       .settings-field select { background: #2d2d2d; border-color: #3e3e3e; color: #d4d4d4; }
       .ai-settings-field select,
-      .ai-settings-field input { background: #2d2d2d; border-color: #3e3e3e; color: #d4d4d4; }
+      .ai-settings-field input,
+      .ai-prompt-editor select,
+      .ai-prompt-editor textarea { background: #2d2d2d; border-color: #3e3e3e; color: #d4d4d4; }
       .ai-apikey-row button { background: #2d2d2d; border-color: #3e3e3e; color: #d4d4d4; }
       .ai-settings-footer { border-color: #3e3e3e; }
       .ai-btn-secondary { background: #2d2d2d; border-color: #3e3e3e; color: #d4d4d4; }
@@ -628,6 +653,8 @@
       .settings-tabs { display: flex; gap: 4px; border-right: 0; border-bottom: 1px solid var(--border, #e5e5e5); }
       .settings-tabs button { width: auto; }
       .ai-model-row { flex-direction: column; }
+      .ai-prompt-editor-heading { align-items: stretch; flex-direction: column; }
+      .ai-prompt-editor-heading select { width: 100%; }
       .ai-model-row select { max-width: none; }
     }
 
