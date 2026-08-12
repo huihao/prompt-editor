@@ -27,6 +27,7 @@ lipo -create "$TMP/PromptEditor-arm64" "$TMP/PromptEditor-x86_64" -output "$TMP/
 mkdir -p "$TMP/PromptEditor.app/Contents/MacOS" "$TMP/PromptEditor.app/Contents/Resources"
 cp "$TMP/PromptEditor" "$TMP/PromptEditor.app/Contents/MacOS/"
 cp "$ROOT/macos/PromptEditor/Info.plist" "$TMP/PromptEditor.app/Contents/"
+cp -R "$ROOT/macos/PromptEditor/Resources/." "$TMP/PromptEditor.app/Contents/Resources/"
 cp "$ROOT/editor/dist/index.html" "$TMP/PromptEditor.app/Contents/Resources/editor.html"
 chmod 755 "$TMP/PromptEditor.app/Contents/MacOS/PromptEditor"
 plutil -lint "$TMP/PromptEditor.app/Contents/Info.plist"

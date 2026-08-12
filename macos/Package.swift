@@ -14,7 +14,7 @@ let package = Package(
             name: "PromptEditorLib",
             dependencies: ["PromptEditorCore"],
             path: "PromptEditor",
-            exclude: ["Info.plist", "main.swift", "BridgingHeader.h"],
+            exclude: ["Info.plist", "main.swift", "BridgingHeader.h", "Resources"],
             sources: ["Helpers.swift", "MainWindow.swift", "StatusBarItem.swift", "AppDelegate.swift", "TerminalSender.swift", "AgentDetector.swift", "SnippetWheelWindow.swift", "SnippetDataManager.swift", "TerminalCaptureServer.swift", "ShellIntegrationScripts.swift", "PromptMemoryModels.swift", "PromptMemoryParser.swift", "PromptMemoryScanner.swift", "PromptMemoryParsers/ClaudeCodeParser.swift", "PromptMemoryParsers/CodexParser.swift", "PromptMemoryParsers/OpenCodeParser.swift", "PromptMemoryParsers/PiParser.swift", "PromptMemoryParsers/KimiParser.swift"],
             swiftSettings: [
                 .unsafeFlags(["-I", "Libraries"]),
@@ -30,7 +30,7 @@ let package = Package(
             name: "PromptEditor",
             dependencies: ["PromptEditorLib"],
             path: "PromptEditor",
-            exclude: ["Info.plist", "Helpers.swift", "MainWindow.swift", "StatusBarItem.swift", "AppDelegate.swift", "TerminalSender.swift", "AgentDetector.swift", "SnippetWheelWindow.swift", "SnippetDataManager.swift", "TerminalCaptureServer.swift", "ShellIntegrationScripts.swift", "PromptMemoryModels.swift", "PromptMemoryParser.swift", "PromptMemoryScanner.swift", "PromptMemoryParsers"],
+            exclude: ["Info.plist", "Helpers.swift", "MainWindow.swift", "StatusBarItem.swift", "AppDelegate.swift", "TerminalSender.swift", "AgentDetector.swift", "SnippetWheelWindow.swift", "SnippetDataManager.swift", "TerminalCaptureServer.swift", "ShellIntegrationScripts.swift", "PromptMemoryModels.swift", "PromptMemoryParser.swift", "PromptMemoryScanner.swift", "PromptMemoryParsers", "Resources"],
             sources: ["main.swift"]
         ),
         .testTarget(
