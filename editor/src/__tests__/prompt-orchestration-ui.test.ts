@@ -5,6 +5,7 @@ import { WORKFLOW_STORAGE_KEY } from '../prompt-workflow-store';
 
 const streamAITextMock = vi.fn();
 const showSettingsMock = vi.fn();
+const getAIPromptMock = vi.fn((feature: string) => `custom ${feature}`);
 let aiConfigured = true;
 
 vi.mock('../ai-service', () => ({
@@ -13,6 +14,10 @@ vi.mock('../ai-service', () => ({
 
 vi.mock('../ai-config', () => ({
   isAIConfigured: () => aiConfigured,
+}));
+
+vi.mock('../ai-prompts', () => ({
+  getAIPrompt: (...args: unknown[]) => getAIPromptMock(...args),
 }));
 
 vi.mock('../settings-ui', () => ({
@@ -57,6 +62,7 @@ describe('prompt orchestration UI', () => {
     localStorage.clear();
     streamAITextMock.mockReset();
     showSettingsMock.mockReset();
+    getAIPromptMock.mockClear();
     aiConfigured = true;
   });
 
@@ -84,6 +90,10 @@ describe('prompt orchestration UI', () => {
 
     (document.getElementById('prompt-workflow-regenerate') as HTMLButtonElement).click();
     expect(streamAITextMock).toHaveBeenCalledOnce();
+    expect(streamAITextMock.mock.calls[0][0][0]).toEqual({
+      role: 'system',
+      content: 'custom orchestration',
+    });
   });
 
   it('renders generated stages and saves without changing the editor', () => {

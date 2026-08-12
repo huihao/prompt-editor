@@ -3,16 +3,9 @@
 import type { EditorView } from '@codemirror/view';
 import { streamAIText } from './ai-service';
 import { isAIConfigured } from './ai-config';
+import { getAIPrompt } from './ai-prompts';
 import { showSettings } from './settings-ui';
 import { formatUsageLine } from './ai-usage';
-
-const ENHANCE_SYSTEM_PROMPT = `You are an expert prompt engineer. Your task is to expand and improve the given prompt to make it:
-- More specific and detailed
-- Clearer in intent and scope
-- Better structured (use headers, bullet points, or numbered lists where appropriate)
-- More effective for AI assistants to understand and execute
-
-Return ONLY the improved prompt text. Do not add any explanation, preamble, or commentary.`;
 
 let enhanceOverlay: HTMLElement | null = null;
 
@@ -137,7 +130,7 @@ export function enhancePrompt(view: EditorView): void {
 
     abortCtrl = streamAIText(
       [
-        { role: 'system', content: ENHANCE_SYSTEM_PROMPT },
+        { role: 'system', content: getAIPrompt('enhance') },
         { role: 'user', content: content },
       ],
       async (chunk) => {

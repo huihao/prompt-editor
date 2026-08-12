@@ -5,6 +5,7 @@ import { enhancePrompt } from '../ai-enhance';
 import { aiAutocomplete } from '../ai-autocomplete';
 
 const streamAITextMock = vi.fn();
+const getAIPromptMock = vi.fn((feature: string) => `custom ${feature}`);
 
 vi.mock('../ai-service', () => ({
   streamAIText: (...args: unknown[]) => streamAITextMock(...args),
@@ -12,6 +13,10 @@ vi.mock('../ai-service', () => ({
 
 vi.mock('../ai-config', () => ({
   isAIConfigured: () => true,
+}));
+
+vi.mock('../ai-prompts', () => ({
+  getAIPrompt: (...args: unknown[]) => getAIPromptMock(...args),
 }));
 
 vi.mock('../settings-ui', () => ({
@@ -33,6 +38,7 @@ describe('AI features', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     streamAITextMock.mockReset();
+    getAIPromptMock.mockClear();
     streamAITextMock.mockImplementation((messages, onChunk, onDone) => {
       onChunk('better prompt');
       onDone();
@@ -53,6 +59,10 @@ describe('AI features', () => {
     expect(document.querySelector<HTMLButtonElement>('#ai-enhance-generate')?.textContent).toBe('Enhance');
     document.querySelector<HTMLButtonElement>('#ai-enhance-generate')?.click();
     expect(streamAITextMock).toHaveBeenCalledOnce();
+    expect(streamAITextMock.mock.calls[0][0][0]).toEqual({
+      role: 'system',
+      content: 'custom enhance',
+    });
     document.querySelector<HTMLButtonElement>('#ai-enhance-apply')?.click();
 
     expect(view.state.doc.toString()).toBe('alpha better prompt gamma');
@@ -104,6 +114,10 @@ describe('AI features', () => {
     await Promise.resolve();
 
     expect(document.querySelector('.cm-ai-suggestion')?.textContent).toBe('better prompt');
+    expect(streamAITextMock.mock.calls[0][0][0]).toEqual({
+      role: 'system',
+      content: 'custom autocomplete',
+    });
     view.destroy();
   });
 });

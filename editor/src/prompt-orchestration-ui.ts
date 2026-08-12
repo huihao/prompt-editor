@@ -2,6 +2,7 @@ import type { EditorView } from '@codemirror/view';
 import { isAIConfigured } from './ai-config';
 import { streamAIText } from './ai-service';
 import { formatUsageLine } from './ai-usage';
+import { getAIPrompt } from './ai-prompts';
 import {
   createWorkflowId,
   extractCompleteWorkflowStages,
@@ -13,20 +14,6 @@ import {
 } from './prompt-orchestration';
 import { promptWorkflowStore } from './prompt-workflow-store';
 import { showSettings } from './settings-ui';
-
-const ORCHESTRATION_SYSTEM_PROMPT = `You are an expert prompt workflow architect. Expand and split the user's prompt into an actionable workflow.
-
-Return ONLY valid JSON with this shape:
-{"title":"Workflow title","stages":[{"prompts":[{"title":"Step title","content":"Complete standalone prompt"}]}]}
-
-Rules:
-- Stages execute sequentially in array order.
-- Prompts within the same stage must be independent and safe to run in parallel.
-- Put dependent prompts in later stages.
-- Each prompt must be complete, specific, and executable on its own.
-- Preserve the user's intent and add useful detail without inventing requirements.
-- Use no more than 24 prompts.
-- Do not include markdown fences, explanations, or extra keys.`;
 
 let activeOverlay: HTMLElement | null = null;
 let activeOverlayCleanup: (() => void) | null = null;
@@ -210,7 +197,7 @@ function openWorkflowEditor(view: EditorView, sourcePrompt: string, initial?: Pr
 
     const controller = streamAIText(
       [
-        { role: 'system', content: ORCHESTRATION_SYSTEM_PROMPT },
+        { role: 'system', content: getAIPrompt('orchestration') },
         { role: 'user', content: sourcePrompt },
       ],
       chunk => {

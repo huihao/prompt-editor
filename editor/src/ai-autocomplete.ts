@@ -14,16 +14,7 @@ import { StateField, StateEffect, type Extension } from '@codemirror/state';
 import { completionStatus } from '@codemirror/autocomplete';
 import { streamAIText } from './ai-service';
 import { isAIConfigured } from './ai-config';
-
-// ─── System prompt ────────────────────────────────────────────────────────────
-
-const AUTOCOMPLETE_SYSTEM_PROMPT = `You are an expert prompt engineer assistant. The user is writing a prompt. Based on what they've written, suggest a concise and useful continuation or follow-up prompt (1-3 sentences maximum).
-
-Rules:
-- Return ONLY the suggested continuation text, nothing else
-- Make it directly useful as the next part of the prompt
-- Match the style and context of what the user has already written
-- Keep it brief and actionable`;
+import { getAIPrompt } from './ai-prompts';
 
 const AUTOCOMPLETE_CONTEXT_LIMIT = 1200;
 const AUTOCOMPLETE_MIN_CHARS = 10;
@@ -186,7 +177,7 @@ const ghostTextPlugin = ViewPlugin.fromClass(
 
       this.abortCtrl = streamAIText(
         [
-          { role: 'system', content: AUTOCOMPLETE_SYSTEM_PROMPT },
+          { role: 'system', content: getAIPrompt('autocomplete') },
           { role: 'user', content: buildAutocompleteContext(doc, cursorPos) },
         ],
         (chunk) => {
