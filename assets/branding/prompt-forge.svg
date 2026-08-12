@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Prompt Forge app icon</title>
+  <desc id="desc">A white prompt document crossed by an AI wand with a gold spark on a violet and pink field.</desc>
+  <defs>
+    <linearGradient id="field" x1="112" y1="96" x2="918" y2="934" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6657F5"/>
+      <stop offset="0.52" stop-color="#A64DDD"/>
+      <stop offset="1" stop-color="#F04F88"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="192" y1="104" x2="610" y2="688" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.26"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="paperShadow" x="-30%" y="-30%" width="170%" height="180%">
+      <feDropShadow dx="0" dy="34" stdDeviation="26" flood-color="#32154F" flood-opacity="0.28"/>
+    </filter>
+    <filter id="wandShadow" x="-30%" y="-60%" width="170%" height="220%">
+      <feDropShadow dx="0" dy="16" stdDeviation="12" flood-color="#26123E" flood-opacity="0.32"/>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" rx="224" fill="url(#field)"/>
+  <path d="M0 0H1024V400C790 536 524 402 0 694Z" fill="url(#shine)"/>
+
+  <g transform="rotate(-6 456 505)" filter="url(#paperShadow)">
+    <path d="M282 213C282 184 305 161 334 161H636L742 267V757C742 786 719 809 690 809H334C305 809 282 786 282 757Z" fill="#FFFFFF"/>
+    <path d="M636 161L742 267H673C653 267 636 250 636 230Z" fill="#E9E7FF"/>
+    <rect x="372" y="356" width="252" height="34" rx="17" fill="#7258E7"/>
+    <rect x="372" y="447" width="286" height="34" rx="17" fill="#E7619B"/>
+    <rect x="372" y="538" width="190" height="34" rx="17" fill="#7258E7"/>
+  </g>
+
+  <g transform="rotate(-43 690 690)" filter="url(#wandShadow)">
+    <rect x="502" y="654" width="374" height="72" rx="36" fill="#302052"/>
+    <path d="M810 654H840C860 654 876 670 876 690C876 710 860 726 840 726H810Z" fill="#FFF39A"/>
+    <rect x="535" y="670" width="180" height="10" rx="5" fill="#FFFFFF" opacity="0.18"/>
+  </g>
+
+  <path d="M795 139C812 212 827 227 900 244C827 261 812 276 795 349C778 276 763 261 690 244C763 227 778 212 795 139Z" fill="#FFF39A"/>
+  <circle cx="886" cy="134" r="15" fill="#FFF39A" opacity="0.9"/>
+</svg>
