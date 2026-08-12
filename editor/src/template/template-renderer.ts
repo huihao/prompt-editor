@@ -9,6 +9,7 @@ import type {
   VariableType,
   PromptTemplate,
   TemplateValues,
+  TemplateValue,
   DataSource,
   DataSourceItem,
 } from './template-types';
@@ -449,7 +450,7 @@ export function previewTemplate(
  */
 export function getDefaultValue(
   variable: TemplateVariable
-): string | string[] | number {
+): TemplateValue {
   if (variable.defaultValue !== undefined) {
     return variable.defaultValue;
   }

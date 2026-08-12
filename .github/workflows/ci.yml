@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Rust and editor quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy, llvm-tools-preview
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: corepack enable
+      - run: corepack pnpm install --dir editor --frozen-lockfile
+      - run: make lint
+      - run: make test-core test-editor editor
+      - run: make coverage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            core/coverage/lcov.info
+            editor/coverage/lcov.info
+
+  macos:
+    name: macOS Apple Silicon
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: corepack enable
+      - run: corepack pnpm install --dir editor --frozen-lockfile
+      - run: make test
+      - run: make macos
+      - run: lipo build/PromptEditor.app/Contents/MacOS/PromptEditor -verify_arch arm64 x86_64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PromptEditor-macos-universal-app
+          path: build/PromptEditor.app

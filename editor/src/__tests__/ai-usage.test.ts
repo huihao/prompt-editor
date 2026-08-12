@@ -12,7 +12,9 @@ describe('AI usage', () => {
     vi.setSystemTime(new Date('2026-08-11T12:00:00Z'));
   });
 
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   it('records provider usage without prompt content and calculates cache hits', () => {
     recordAIUsage({

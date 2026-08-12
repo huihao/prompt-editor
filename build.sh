@@ -18,6 +18,10 @@ fi
 
 echo "=== Building Prompt Editor for $PLATFORM ==="
 
+if [ "$PLATFORM" = "macos" ]; then
+    exec "$SCRIPT_DIR/scripts/build-macos.sh"
+fi
+
 # Step 1: Build Rust core library
 echo ""
 echo "--- Building Rust core library ---"
@@ -36,47 +40,7 @@ echo "Editor built: editor/dist/index.html"
 cd ..
 
 # Step 3: Build platform-specific app
-if [ "$PLATFORM" = "macos" ]; then
-    echo ""
-    echo "--- Preparing macOS build ---"
-    
-    # Copy latest Rust library
-    echo "Copying Rust library..."
-    cp "$SCRIPT_DIR/core/target/release/libprompt_editor_core.a" "$SCRIPT_DIR/macos/Libraries/"
-    cp "$SCRIPT_DIR/core/include/prompt_editor.h" "$SCRIPT_DIR/macos/Libraries/"
-    
-    echo ""
-    echo "--- Building macOS app ---"
-    cd macos
-    swift build -c release --arch arm64
-    echo "macOS app built."
-
-    # Create .app bundle
-    APP_DIR="$SCRIPT_DIR/build/PromptEditor.app"
-    CONTENTS_DIR="$APP_DIR/Contents"
-    MACOS_DIR="$CONTENTS_DIR/MacOS"
-    RESOURCES_DIR="$CONTENTS_DIR/Resources"
-
-    rm -rf "$APP_DIR"
-    mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
-
-    # Copy binary
-    cp .build/release/PromptEditor "$MACOS_DIR/"
-
-    # Copy Info.plist
-    cp PromptEditor/Info.plist "$CONTENTS_DIR/"
-
-    # Copy editor HTML
-    cp "$SCRIPT_DIR/editor/dist/index.html" "$RESOURCES_DIR/editor.html"
-
-    echo "App bundle: $APP_DIR"
-    cd ..
-    
-    echo ""
-    echo "=== Build complete ==="
-    echo "Run: open build/PromptEditor.app"
-
-elif [ "$PLATFORM" = "linux" ]; then
+if [ "$PLATFORM" = "linux" ]; then
     echo ""
     echo "--- Building Linux app ---"
     cd linux

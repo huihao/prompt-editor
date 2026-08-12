@@ -17,9 +17,8 @@
 *.rlib
 *.rmeta
 
-# Cargo
+# Cargo build output
 core/target/
-core/Cargo.lock
 
 # FFI generated files
 core/include/*.h
@@ -45,6 +44,8 @@ lerna-debug.log*
 
 # Coverage
 editor/coverage/
+core/coverage/
+coverage/
 
 # --------------------------------------------
 # Swift / macOS (macos/)
@@ -75,18 +76,15 @@ macos/DerivedData/
 
 # Rust Windows builds
 windows/target/
-windows/Cargo.lock
 
 # Tauri
 windows/src-tauri/target/
-windows/src-tauri/Cargo.lock
 windows/src-tauri/gen/
 
 # --------------------------------------------
 # Linux (linux/)
 # --------------------------------------------
 linux/target/
-linux/Cargo.lock
 
 # --------------------------------------------
 # IDE / Editors
@@ -150,12 +148,6 @@ $RECYCLE.BIN/
 *.cache
 
 # --------------------------------------------
-# Test Files
-# --------------------------------------------
-*.test
-*.spec
-
-# --------------------------------------------
 # Environment Files
 # --------------------------------------------
 .env
@@ -164,6 +156,16 @@ $RECYCLE.BIN/
 .env.development
 .env.test
 .env.production
+
+# Signing and notarization material
+*.cer
+*.p12
+*.provisionprofile
+*.mobileprovision
+*.keychain
+*.keychain-db
+.notarytool/
+.apple-credentials/
 
 # --------------------------------------------
 # Dependency lockfiles are committed for reproducibility
@@ -209,3 +211,10 @@ release/
 *.so
 *.dll
 *.dylib
+
+# Release packages and checksums
+*.dmg
+*.pkg
+*.tar.gz
+*.zip
+*.sha256

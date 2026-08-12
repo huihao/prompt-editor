@@ -17,6 +17,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "requires an interactive system clipboard; run with cargo test clipboard -- --ignored --test-threads=1"]
     fn test_clipboard_roundtrip() {
         let text = "Hello from prompt-editor!";
         copy_to_clipboard(text).expect("copy failed");

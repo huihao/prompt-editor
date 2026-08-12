@@ -56,8 +56,9 @@ export class SnippetManager {
         if (!response.ok) {
           throw new Error(`Failed to load snippets: ${response.status}`);
         }
-        this.data = await response.json();
-        logger.info('SnippetManager', 'Built-in data loaded from file', { categoryCount: this.data?.categories?.length });
+        const builtInData = await response.json() as SnippetData;
+        this.data = builtInData;
+        logger.info('SnippetManager', 'Built-in data loaded from file', { categoryCount: builtInData.categories.length });
       } catch (fetchError) {
         logger.warn('SnippetManager', 'Cannot fetch snippets.json, using embedded default data', { error: String(fetchError) });
         // Use embedded default snippets data when fetch fails (WKWebView file:// restriction)
@@ -103,6 +104,7 @@ export class SnippetManager {
               id: 'ai-context',
               name: 'Context Management',
               icon: '📚',
+              description: '',
               snippets: [
                 {
                   id: 'ai-context-first',
@@ -124,6 +126,7 @@ export class SnippetManager {
               id: 'debug-analysis',
               name: 'Error Analysis',
               icon: '🔍',
+              description: '',
               snippets: [
                 {
                   id: 'debug-stacktrace',
@@ -220,13 +223,15 @@ export class SnippetManager {
 
     // Merge user categories with built-in categories
     for (const userCat of this.userData.categories) {
-      const existingCat = this.data.categories.find(c => c.id === userCat.id);
+      const existingCat: Category | undefined = this.data.categories.find(
+        (category: Category) => category.id === userCat.id,
+      );
       if (existingCat) {
         // Merge snippets into existing category
         if (userCat.snippets) {
           existingCat.snippets = existingCat.snippets || [];
           for (const snippet of userCat.snippets) {
-            const idx = existingCat.snippets.findIndex(s => s.id === snippet.id);
+            const idx = existingCat.snippets.findIndex((existingSnippet: Snippet) => existingSnippet.id === snippet.id);
             if (idx >= 0) {
               existingCat.snippets[idx] = snippet;
             } else {

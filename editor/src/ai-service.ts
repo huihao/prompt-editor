@@ -85,7 +85,7 @@ export function streamAIText(
           streamError = part.error instanceof Error ? part.error : new Error(String(part.error));
           break;
         } else if (part.type === 'finish') {
-          const finishUsage = part.usage;
+          const finishUsage = part.totalUsage;
           if (finishUsage) {
             usage = {
               inputTokens: finishUsage.inputTokens,
