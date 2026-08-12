@@ -148,13 +148,13 @@
 
 | 功能 | 完成度 | 平台支持 | 说明 |
 | --- | --- | --- | --- |
-| macOS 原生 App | 中 | M | 可构建，但默认只构建 arm64 |
+| macOS 原生 App | 高 | M | Universal 2 构建覆盖 Apple Silicon 与 Intel |
 | macOS 菜单栏/状态栏 | 高 | M | 已实现 |
 | macOS 辅助功能发送 | 中 | M | 启动后自动检测权限，未授权时可打开系统安全设置；授权后需要重启应用 |
 | Windows Tauri 外壳 | 低 | W* | 依赖错误，且前端桥接未完成 |
 | Windows 系统托盘 | 中 | W* | 代码存在，尚未完成实际验证 |
-| Linux GTK 外壳 | 低 | L* | GTK 依赖冲突，当前无法构建 |
-| macOS 安装 | 中 | M | 仅复制 .app，无 DMG、签名和公证 |
+| Linux GTK 外壳 | 低 | L* | 依赖图已锁定，但桌面运行与 Wayland 支持尚未验证 |
+| macOS 安装 | 高 | M | 提供 DMG、tar.gz、SHA-256，以及 CI 签名/公证流程 |
 | Linux 安装 | 低 | L* | 仅复制二进制和静态文件 |
 | Windows 安装 | 低 | W* | 只提示用户手动复制 exe |
 | 自动更新 | 未完成 | M / W / L | Tauri updater 未启用 |
@@ -168,7 +168,7 @@
 
 | 平台 | 当前判断 |
 | --- | --- |
-| macOS | 主功能最多，编辑、发送、Agent 检测、Prompt Memory、终端集成基本可用，但缺少正式安装包、签名、公证和数据迁移 |
+| macOS | 正式支持；编辑、发送、Agent 检测、Prompt Memory、终端集成及 Universal 2 发布流程可用；数据迁移仍需加强 |
 | Windows | UI 和部分 Tauri 代码存在，但当前依赖无法构建，前端桥接也未完成，不能视为可用版本 |
 | Linux | GTK 依赖无法解析，Wayland 未实现，文件、终端和 Prompt Memory 能力明显不完整 |
 | 纯 Web/编辑器层 | 编辑、历史、模板、Snippet、部分 AI 功能可以运行，但文件和终端能力需要原生桥接 |

@@ -10,18 +10,18 @@ P0 items block a responsible public source or macOS binary release.
 
 | ID | Problem | Impact | Solution | Effort | Validation | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| P0-01 | No project license or package license metadata | Users cannot legally reuse the code; registries cannot classify it | Add MIT `LICENSE` for Kimi Wu and `license`/`publish` metadata to manifests | XS | `test -s LICENSE`; inspect Cargo metadata | Planned |
-| P0-02 | Missing contribution, security, ownership, issue, and PR guidance | Unsafe vulnerability disclosure and inconsistent contributions | Add `CONTRIBUTING.md`, `SECURITY.md`, CODEOWNERS setup, issue forms, and PR template without inventing contacts | S | Required-file loop; parse YAML | Planned |
-| P0-03 | Cargo lockfiles are ignored and absent from Git | Clean/offline builds resolve different versions or fail | Correct `.gitignore`; generate and commit core, Windows, and Linux application lockfiles where dependency graphs resolve | S | `cargo metadata --locked` for each supported/resolvable manifest | Planned |
-| P0-04 | Rust tests depend on real clipboard and default user storage | `make test` fails in CI/headless sessions and can touch user data | Separate opt-in clipboard integration tests and inject a temporary FFI storage path | S | `make test-core` in a clean/headless environment | Planned |
-| P0-05 | Strict TypeScript currently fails and is not part of root tests | Compile-time regressions can ship despite green Vitest | Fix source/test type errors, add raw module declarations and `make typecheck` | M | `make typecheck` | Planned |
-| P0-06 | No unified lint/coverage/verify interface | Contributors and CI cannot reproduce the same quality gate | Add `make lint`, `make coverage`, and `make verify`; document optional coverage tools | M | Run all three targets | Planned |
-| P0-07 | macOS builds are arm64-biased and silently fall back | Intel users may receive an incompatible app | Add strict Universal 2 build script and validate both app executable and Rust library slices | M | `lipo -archs build/PromptEditor.app/Contents/MacOS/PromptEditor` | Planned |
-| P0-08 | No installable/checksummed macOS release artifact | Users must build or copy an ad hoc app | Produce versioned `.dmg`, `.tar.gz`, and SHA-256 files with deterministic staging | M | `make package-macos VERSION=0.1.0`; `shasum -a 256 -c` | Planned |
-| P0-09 | No signing/notarization path | Downloaded apps trigger Gatekeeper friction; releases cannot meet normal macOS trust expectations | Add optional Developer ID signing/notarization with strict required mode and secret-safe variables | M | Static script tests; actual notarization remains external until credentials exist | Planned |
-| P0-10 | No push/PR CI or tagged release workflow | Regressions and releases are manual and unaudited | Add least-privilege GitHub Actions for quality checks, macOS build, checksums, optional signing, and GitHub Release | M | Parse workflow YAML; actual remote run after repository push | Planned |
-| P0-11 | README and install/release documentation are incomplete or inaccurate | Users cannot reliably install, test, uninstall, or understand support status | Rewrite English-first README; add installation, CI, and release guides with experimental platform caveats | M | Required-file and local-link audit | Planned |
-| P0-12 | No changelog/version consistency gate | Tags can disagree with manifests and user-visible changes are lost | Add Keep a Changelog file and tag-to-manifest checker | S | `scripts/check-version.sh v0.1.0` | Planned |
+| P0-01 | No project license or package license metadata | Users cannot legally reuse the code; registries cannot classify it | Add MIT `LICENSE` for Kimi Wu and `license`/`publish` metadata to manifests | XS | `test -s LICENSE`; inspect Cargo metadata | Complete |
+| P0-02 | Missing contribution, security, ownership, issue, and PR guidance | Unsafe vulnerability disclosure and inconsistent contributions | Add `CONTRIBUTING.md`, `SECURITY.md`, CODEOWNERS setup, issue forms, and PR template without inventing contacts | S | Required-file loop; parse YAML | Complete |
+| P0-03 | Cargo lockfiles are ignored and absent from Git | Clean/offline builds resolve different versions or fail | Correct `.gitignore`; generate and commit core, Windows, and Linux application lockfiles where dependency graphs resolve | S | `cargo metadata --locked` for each supported/resolvable manifest | Complete |
+| P0-04 | Rust tests depend on real clipboard and default user storage | `make test` fails in CI/headless sessions and can touch user data | Separate opt-in clipboard integration tests and inject a temporary FFI storage path | S | `make test-core` in a clean/headless environment | Complete |
+| P0-05 | Strict TypeScript currently fails and is not part of root tests | Compile-time regressions can ship despite green Vitest | Fix source/test type errors, add raw module declarations and `make typecheck` | M | `make typecheck` | Complete |
+| P0-06 | No unified lint/coverage/verify interface | Contributors and CI cannot reproduce the same quality gate | Add `make lint`, `make coverage`, and `make verify`; document optional coverage tools | M | Run all three targets | Complete |
+| P0-07 | macOS builds are arm64-biased and silently fall back | Intel users may receive an incompatible app | Add strict Universal 2 build script and validate both app executable and Rust library slices | M | `lipo -archs build/PromptEditor.app/Contents/MacOS/PromptEditor` | Complete |
+| P0-08 | No installable/checksummed macOS release artifact | Users must build or copy an ad hoc app | Produce versioned `.dmg`, `.tar.gz`, and SHA-256 files with deterministic staging | M | `make package-macos VERSION=0.1.0`; `shasum -a 256 -c` | Complete |
+| P0-09 | No signing/notarization path | Downloaded apps trigger Gatekeeper friction; releases cannot meet normal macOS trust expectations | Add optional Developer ID signing/notarization with strict required mode and secret-safe variables | M | Static script tests; actual notarization remains external until credentials exist | Complete |
+| P0-10 | No push/PR CI or tagged release workflow | Regressions and releases are manual and unaudited | Add least-privilege GitHub Actions for quality checks, macOS build, checksums, required signing, and GitHub Release | M | Parse workflow YAML; actual remote run after repository push | Complete |
+| P0-11 | README and install/release documentation are incomplete or inaccurate | Users cannot reliably install, test, uninstall, or understand support status | Rewrite English-first README; add installation, CI, and release guides with experimental platform caveats | M | Required-file and local-link audit | Complete |
+| P0-12 | No changelog/version consistency gate | Tags can disagree with manifests and user-visible changes are lost | Add Keep a Changelog file and tag-to-manifest checker | S | `scripts/check-version.sh v0.1.0` | Complete |
 
 ## P1
 
@@ -40,7 +40,7 @@ P1 items are strongly recommended for security, maintainability, or credible exp
 | P1-09 | Windows shell has obsolete/unverified dependencies and incomplete bridge | Windows support cannot be advertised as usable | Refresh Tauri path or repair v1 graph, remove unused dependencies, add Windows CI and installer | XL | Clean Windows runner build and smoke test | Deferred |
 | P1-10 | Linux shell has dependency, X11 keycode, Wayland, and XDG gaps | Linux behavior varies or fails by desktop/distribution | Lock graph, use layout-aware shortcuts/portal, honor XDG paths, handle missing typing tools | XL | Ubuntu runner plus X11/Wayland integration tests | Deferred |
 | P1-11 | No end-to-end native application test | Unit tests cannot catch broken embedded asset/bridge/package integration | Add macOS app launch, WebView load, bridge, and artifact smoke tests | L | Automated app launch and UI assertion on macOS CI | Deferred |
-| P1-12 | Third-party notices are not generated | Binary distributions may omit required notices | Generate notices from locked Cargo/pnpm graphs and package them with releases | M | Notice audit against dependency metadata | Planned |
+| P1-12 | Third-party notices are not generated | Binary distributions may omit required notices | Generate notices from locked Cargo/pnpm graphs and package them with releases | M | Notice audit against dependency metadata | Deferred |
 | P1-13 | Diagnostic logs may retain sensitive prompt/terminal context | Support bundles can disclose user data | Define redaction, retention limit, export warning, and no-secret logging tests | M | Redaction tests and manual exported-log review | Deferred |
 | P1-14 | Dependency/security audits are manual | Vulnerable or incompatible packages can enter unnoticed | Add scheduled `cargo audit`, pnpm audit policy, license allowlist, and secret scan | M | Scheduled workflow and known-fixture test | Deferred |
 
@@ -50,7 +50,7 @@ P2 items improve polish or reduce long-term maintenance cost without blocking th
 
 | ID | Problem | Impact | Solution | Effort | Validation | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| P2-01 | `snippet-manager-ui-backup.ts` is an unreferenced 709-line duplicate | Type errors and review noise remain in production compilation | Prove it is unused, remove it or exclude it from production typecheck, retain history in Git | XS | `rg` import scan; build and tests | Planned |
+| P2-01 | `snippet-manager-ui-backup.ts` is an unreferenced 709-line duplicate | Type errors and review noise remain in production compilation | Prove it is unused, remove it or exclude it from production typecheck, retain history in Git | XS | `rg` import scan; build and tests | Complete |
 | P2-02 | HTML escape helpers are duplicated | Fixes may not reach every rendering surface | Consolidate on a shared escape/DOM rendering utility incrementally | M | Injection unit tests for each consumer | Deferred |
 | P2-03 | `editor/index.html` is a 4,336-line mixed HTML/CSS shell | Styling and accessibility changes are difficult to isolate | Split source styles/components while retaining single-file Vite output | L | Byte-equivalent behavior via build and UI snapshots | Deferred |
 | P2-04 | macOS preferences and native history actions remain TODO | Menu actions are incomplete | Connect existing web panels or remove unavailable commands until implemented | S | XCTest and UI smoke test | Deferred |
@@ -67,7 +67,7 @@ P2 items improve polish or reduce long-term maintenance cost without blocking th
 - No GitHub remote, repository URL, public maintainer handle, or security email is configured. Files must not invent them.
 - No Apple Developer ID identity, team ID, notarization credentials, or signing certificate is available in the repository. The implementation can provide and statically test the path, but only the owner can complete credential-backed notarization.
 - No Homebrew tap exists. A future cask requires stable public release URLs and checksums.
-- This environment is macOS arm64 but prevents nested SwiftPM sandbox execution. GitHub-hosted macOS CI and a normal local terminal are required for authoritative Swift and Universal 2 verification.
+- This environment is macOS arm64. Swift tests and Universal 2 packaging were verified outside the restricted execution sandbox; GitHub-hosted macOS CI remains the clean-runner authority.
 - Windows/Linux GUI behavior cannot be validated on this host and remains experimental.
 
 ## Execution Order
