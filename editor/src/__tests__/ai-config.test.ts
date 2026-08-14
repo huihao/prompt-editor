@@ -2,12 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AI_PROVIDER_OPTIONS,
   BUILT_IN_MODELS,
-  getAIConfig,
   getDefaultAIModel,
   mountAISettingsPanel,
-  saveAIConfig,
 } from '../ai-config';
-import { DEFAULT_AI_PROMPTS, normalizeAIPromptSettings } from '../ai-prompts';
 import { getAIUsageSummary, recordAIUsage } from '../ai-usage';
 
 describe('AI settings catalog', () => {
@@ -123,87 +120,6 @@ describe('AI settings catalog', () => {
     mountAISettingsPanel(container);
 
     expect(container.querySelector('#ai-usage-summary')?.textContent).toContain('No usage recorded in the last 30 days.');
-  });
-
-  it('renders independent prompt editors and saves custom content safely', () => {
-    const container = document.createElement('div');
-    mountAISettingsPanel(container);
-
-    expect(container.querySelectorAll('[data-ai-prompt-editor]')).toHaveLength(3);
-    const mode = container.querySelector<HTMLSelectElement>('#ai-prompt-mode-enhance')!;
-    const content = container.querySelector<HTMLTextAreaElement>('#ai-prompt-content-enhance')!;
-    expect(mode.value).toBe('default');
-    expect(content.disabled).toBe(true);
-    expect(content.value).toBe(DEFAULT_AI_PROMPTS.enhance);
-
-    mode.value = 'custom';
-    mode.dispatchEvent(new Event('change', { bubbles: true }));
-    expect(content.disabled).toBe(false);
-    content.value = '<improve & preserve> "quoted"';
-    content.dispatchEvent(new Event('input', { bubbles: true }));
-    container.querySelector<HTMLButtonElement>('#ai-save-btn')!.click();
-
-    expect(getAIConfig()?.prompts?.enhance).toEqual({
-      mode: 'custom',
-      content: '<improve & preserve> "quoted"',
-    });
-
-    const remounted = document.createElement('div');
-    mountAISettingsPanel(remounted);
-    expect(remounted.querySelector<HTMLTextAreaElement>('#ai-prompt-content-enhance')?.value)
-      .toBe('<improve & preserve> "quoted"');
-    expect(remounted.querySelector('improve')).toBeNull();
-  });
-
-  it('preserves custom drafts when switching modes and resets one feature locally', () => {
-    const prompts = normalizeAIPromptSettings(undefined);
-    prompts.enhance = { mode: 'custom', content: 'Enhance draft' };
-    prompts.autocomplete = { mode: 'custom', content: 'Autocomplete draft' };
-    saveAIConfig({
-      provider: 'openai', model: 'gpt-5.6', apiKey: 'key', enabled: true, prompts,
-    });
-    const container = document.createElement('div');
-    mountAISettingsPanel(container);
-
-    const mode = container.querySelector<HTMLSelectElement>('#ai-prompt-mode-enhance')!;
-    const content = container.querySelector<HTMLTextAreaElement>('#ai-prompt-content-enhance')!;
-    mode.value = 'default';
-    mode.dispatchEvent(new Event('change', { bubbles: true }));
-    expect(content.disabled).toBe(true);
-    expect(content.value).toBe(DEFAULT_AI_PROMPTS.enhance);
-
-    mode.value = 'custom';
-    mode.dispatchEvent(new Event('change', { bubbles: true }));
-    expect(content.value).toBe('Enhance draft');
-
-    container.querySelector<HTMLButtonElement>('#ai-prompt-reset-enhance')!.click();
-    expect(mode.value).toBe('default');
-    expect(content.value).toBe(DEFAULT_AI_PROMPTS.enhance);
-    expect(container.querySelector<HTMLTextAreaElement>('#ai-prompt-content-autocomplete')?.value)
-      .toBe('Autocomplete draft');
-  });
-
-  it('does not persist prompt edits when cancelled', () => {
-    const prompts = normalizeAIPromptSettings(undefined);
-    prompts.orchestration = { mode: 'custom', content: 'Original workflow prompt' };
-    const saved = {
-      provider: 'openai' as const,
-      model: 'gpt-5.6',
-      apiKey: 'key',
-      enabled: true,
-      prompts,
-    };
-    saveAIConfig(saved);
-    const onCancel = vi.fn();
-    const container = document.createElement('div');
-    mountAISettingsPanel(container, { onCancel });
-
-    const content = container.querySelector<HTMLTextAreaElement>('#ai-prompt-content-orchestration')!;
-    content.value = 'Unsaved workflow prompt';
-    content.dispatchEvent(new Event('input', { bubbles: true }));
-    container.querySelector<HTMLButtonElement>('#ai-cancel-btn')!.click();
-
-    expect(getAIConfig()).toEqual(saved);
-    expect(onCancel).toHaveBeenCalledOnce();
+    expect(container.querySelector('[data-ai-prompt-editor]')).toBeNull();
   });
 });

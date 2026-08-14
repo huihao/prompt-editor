@@ -1,13 +1,7 @@
 // AI Provider Configuration & Settings Modal
 
 import { clearAIUsage, formatTokenCount, getAIUsageSummary } from './ai-usage';
-import {
-  AI_PROMPT_FEATURES,
-  DEFAULT_AI_PROMPTS,
-  normalizeAIPromptSettings,
-  type AIPromptFeature,
-  type AIPromptSettings,
-} from './ai-prompts';
+import type { AIPromptSettings } from './ai-prompts';
 
 export type AIProvider =
   | 'openai'
@@ -287,13 +281,6 @@ export function mountAISettingsPanel(
     apiKey: '',
     enabled: true,
   };
-  const promptSettings = normalizeAIPromptSettings(config.prompts);
-  const promptLabels: Record<AIPromptFeature, string> = {
-    enhance: 'Prompt Enhance',
-    autocomplete: 'AI Autocomplete',
-    orchestration: 'Prompt Orchestration',
-  };
-
   container.innerHTML = `
       <div class="ai-settings-body">
         <div class="ai-settings-field">
@@ -326,24 +313,6 @@ export function mountAISettingsPanel(
           <label>Enable AI features</label>
           <input type="checkbox" id="ai-enabled-toggle"${config.enabled ? ' checked' : ''} />
         </div>
-        <section class="ai-prompt-settings">
-          <h3>Prompt writing</h3>
-          <div class="ai-prompt-editors">
-            ${AI_PROMPT_FEATURES.map(feature => `
-              <div class="ai-prompt-editor" data-ai-prompt-editor="${feature}">
-                <div class="ai-prompt-editor-heading">
-                  <label for="ai-prompt-mode-${feature}">${promptLabels[feature]}</label>
-                  <select id="ai-prompt-mode-${feature}" aria-label="${promptLabels[feature]} mode">
-                    <option value="default">Use default</option>
-                    <option value="custom">Custom</option>
-                  </select>
-                </div>
-                <textarea id="ai-prompt-content-${feature}" aria-label="${promptLabels[feature]} prompt"></textarea>
-                <button id="ai-prompt-reset-${feature}" type="button" class="ai-btn-secondary">Reset to default</button>
-              </div>
-            `).join('')}
-          </div>
-        </section>
         <div class="ai-usage-section" id="ai-usage-section">${renderAIUsageSection()}</div>
         <div id="ai-test-result" class="ai-test-result" style="display:none"></div>
       </div>
@@ -363,40 +332,6 @@ export function mountAISettingsPanel(
   const apikeyInput = container.querySelector('#ai-apikey-input') as HTMLInputElement;
   const baseurlInput = container.querySelector('#ai-baseurl-input') as HTMLInputElement;
   const usageSection = container.querySelector('#ai-usage-section') as HTMLElement;
-
-  const renderPromptEditor = (feature: AIPromptFeature): void => {
-    const setting = promptSettings[feature];
-    const mode = container.querySelector<HTMLSelectElement>(`#ai-prompt-mode-${feature}`)!;
-    const content = container.querySelector<HTMLTextAreaElement>(`#ai-prompt-content-${feature}`)!;
-    mode.value = setting.mode;
-    content.disabled = setting.mode === 'default';
-    content.value = setting.mode === 'custom'
-      ? setting.content
-      : DEFAULT_AI_PROMPTS[feature];
-  };
-
-  AI_PROMPT_FEATURES.forEach(feature => {
-    const mode = container.querySelector<HTMLSelectElement>(`#ai-prompt-mode-${feature}`)!;
-    const content = container.querySelector<HTMLTextAreaElement>(`#ai-prompt-content-${feature}`)!;
-    const reset = container.querySelector<HTMLButtonElement>(`#ai-prompt-reset-${feature}`)!;
-
-    renderPromptEditor(feature);
-    mode.addEventListener('change', () => {
-      const setting = promptSettings[feature];
-      setting.mode = mode.value === 'custom' ? 'custom' : 'default';
-      if (setting.mode === 'custom' && !setting.content) {
-        setting.content = DEFAULT_AI_PROMPTS[feature];
-      }
-      renderPromptEditor(feature);
-    });
-    content.addEventListener('input', () => {
-      promptSettings[feature].content = content.value;
-    });
-    reset.addEventListener('click', () => {
-      promptSettings[feature] = { mode: 'default', content: '' };
-      renderPromptEditor(feature);
-    });
-  });
 
   if (config.baseURL) {
     baseurlInput.value = config.baseURL;
@@ -499,10 +434,7 @@ export function mountAISettingsPanel(
         ? baseurlInput.value.trim() || getDefaultAIBaseURL(providerSelect.value as AIProvider)
         : undefined,
       enabled: (container.querySelector('#ai-enabled-toggle') as HTMLInputElement).checked,
-      prompts: Object.fromEntries(AI_PROMPT_FEATURES.map(feature => [
-        feature,
-        { ...promptSettings[feature] },
-      ])) as AIPromptSettings,
+      prompts: config.prompts,
     };
     saveAIConfig(newConfig);
     options.onSave?.();

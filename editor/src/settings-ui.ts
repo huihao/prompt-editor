@@ -1,7 +1,8 @@
 import { mountAISettingsPanel } from './ai-config';
+import { mountAIPromptSettingsPanel } from './ai-prompt-settings';
 import { applyTranslations, getLocale, setLocale } from './i18n';
 
-export type SettingsTabId = 'general' | 'ai';
+export type SettingsTabId = 'general' | 'ai' | 'prompts';
 
 interface SettingsTab {
   id: SettingsTabId;
@@ -35,6 +36,14 @@ const settingsTabs: SettingsTab[] = [
     id: 'ai',
     label: 'AI Provider',
     render: container => mountAISettingsPanel(container, {
+      onSave: closeSettings,
+      onCancel: closeSettings,
+    }),
+  },
+  {
+    id: 'prompts',
+    label: 'Prompt Writing',
+    render: container => mountAIPromptSettingsPanel(container, {
       onSave: closeSettings,
       onCancel: closeSettings,
     }),

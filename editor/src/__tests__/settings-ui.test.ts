@@ -11,16 +11,22 @@ describe('unified settings', () => {
 
   afterEach(() => closeSettings());
 
-  it('opens General and AI Provider tabs in one modal', () => {
+  it('opens General, AI Provider, and Prompt Writing tabs in one modal', () => {
     showSettings();
 
     expect(document.querySelector('.settings-modal')).not.toBeNull();
     expect(document.querySelector('[data-settings-tab="general"]')?.textContent).toContain('General');
     expect(document.querySelector('[data-settings-tab="ai"]')?.textContent).toContain('AI Provider');
+    expect(document.querySelector('[data-settings-tab="prompts"]')?.textContent).toContain('Prompt Writing');
     expect(document.querySelector('#settings-locale')).not.toBeNull();
 
     document.querySelector<HTMLButtonElement>('[data-settings-tab="ai"]')!.click();
     expect(document.querySelector('#ai-provider-select')).not.toBeNull();
+    expect(document.querySelector('[data-ai-prompt-editor]')).toBeNull();
+
+    document.querySelector<HTMLButtonElement>('[data-settings-tab="prompts"]')!.click();
+    expect(document.querySelectorAll('[data-ai-prompt-editor]')).toHaveLength(3);
+    expect(document.querySelector('#ai-provider-select')).toBeNull();
   });
 
   it('changes and persists language from General settings', () => {

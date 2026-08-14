@@ -116,6 +116,7 @@ const translations: Record<string, string> = {
   'Base URL': '基础 URL',
   'Enable AI features': '启用 AI 功能',
   'Prompt writing': '提示词编写',
+  'Prompt Writing': '提示词编写',
   'Prompt Enhance': '提示词优化',
   'AI Autocomplete': 'AI 自动补全',
   'Prompt Orchestration': '提示词编排',
