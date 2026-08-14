@@ -57,7 +57,9 @@ This makes the built-in text the single source of truth for the settings preview
 
 ## Settings Experience
 
-Add a `Prompt writing` section to the existing AI settings tab, below the provider controls and above usage statistics.
+Add `Prompt Writing` as a dedicated tab in the existing Settings modal, alongside `General` and `AI Provider`. The AI Provider tab retains provider, model, API key, enablement, connection testing, and token usage controls, but no longer renders prompt editors.
+
+The dedicated prompt settings UI lives in a focused `ai-prompt-settings.ts` module rather than adding prompt form behavior to `settings-ui.ts` or retaining it inside the provider panel. `settings-ui.ts` only registers and activates the tab.
 
 The section contains one editor for each feature. Each editor has:
 
@@ -68,7 +70,9 @@ The section contains one editor for each feature. Each editor has:
 
 When default mode is active, the text area is disabled and shows the built-in prompt. When custom mode is active, it is editable and shows the saved custom content. If no custom content exists when custom mode is selected, the editor starts with the built-in prompt so the user can modify rather than rewrite it.
 
-Changing a selector or text area only modifies the panel's in-memory form state. `Save` writes provider and prompt settings together. `Cancel`, closing the modal, or clicking outside discards unsaved edits.
+Changing a selector or text area only modifies the panel's in-memory form state. `Save` merges the prompt settings into the stored AI configuration. `Cancel`, closing the modal, or clicking outside discards unsaved edits.
+
+In the dedicated tab, `Save` updates only `AIConfig.prompts` while preserving every existing provider field. If no AI configuration exists yet, saving prompt settings creates a configuration using the same OpenAI defaults currently used by the AI Provider panel. Saving or cancelling closes the Settings modal consistently with the AI Provider tab.
 
 Resetting an individual feature immediately changes that form entry to default mode and clears its custom content, but remains unsaved until the user chooses `Save`.
 
@@ -96,9 +100,9 @@ Reading at request time means saved settings take effect on the next AI operatio
 
 ## Localization And Layout
 
-Add English-to-Chinese translations for the new section title, feature labels, modes, reset command, and supporting field labels. Prompt bodies themselves are not translated because they are executable instructions.
+Add English-to-Chinese translations for the `Prompt Writing` tab label, feature labels, modes, reset command, and supporting field labels. Prompt bodies themselves are not translated because they are executable instructions.
 
-The existing settings modal remains the container. Prompt editors use compact field spacing and full-width text areas with a stable minimum height. The content panel may scroll vertically so the expanded AI tab remains usable on smaller windows.
+The existing settings modal remains the container. Prompt editors use compact field spacing and full-width text areas with a stable minimum height. The Prompt Writing content panel scrolls vertically on smaller windows. At narrow widths, the three settings tabs remain in the existing top tab row and prompt editor controls stack without horizontal overflow.
 
 ## Testing
 
@@ -109,7 +113,10 @@ Add focused tests for:
 - Custom resolution for each feature.
 - Empty or malformed custom values falling back to the built-in prompt.
 - The settings panel rendering all three prompt editors.
+- The Settings modal rendering `Prompt Writing` as a third tab.
+- The AI Provider tab not rendering prompt editors.
 - Switching modes, editing content, resetting one feature, saving, and cancelling without persistence.
+- Prompt-only saves preserving provider configuration fields.
 - Special characters in saved custom prompts rendering as text.
 - Prompt Enhance passing its resolved custom system prompt.
 - AI Autocomplete passing its resolved custom system prompt.
