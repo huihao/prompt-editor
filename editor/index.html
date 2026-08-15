@@ -16,6 +16,8 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-wrap: wrap;
+      row-gap: 6px;
       padding: 6px 12px;
       border-bottom: 1px solid var(--border);
       user-select: none;
@@ -24,6 +26,7 @@
     #toolbar .actions {
       display: flex;
       gap: 8px;
+      flex-wrap: wrap;
       -webkit-app-region: no-drag;
     }
     #toolbar .title {
@@ -512,7 +515,7 @@
       border: 1px solid var(--border, #e5e5e5);
       border-radius: 8px;
       width: 680px;
-      min-height: 460px;
+      min-height: min(460px, 86vh);
       max-width: 92vw;
       max-height: 86vh;
       box-shadow: 0 20px 60px rgba(0,0,0,0.25);
@@ -533,7 +536,7 @@
     }
     .settings-close:hover,
     .ai-settings-close:hover { opacity: 1; }
-    .settings-layout { display: grid; grid-template-columns: 164px 1fr; flex: 1; min-height: 0; }
+    .settings-layout { display: grid; grid-template-columns: 164px 1fr; grid-template-rows: minmax(0, 1fr); flex: 1; min-height: 0; }
     .settings-tabs {
       padding: 10px 8px;
       border-right: 1px solid var(--border, #e5e5e5);
@@ -650,7 +653,7 @@
     }
     @media (max-width: 560px) {
       .settings-modal { min-height: 0; height: 86vh; }
-      .settings-layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      .settings-layout { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
       .settings-tabs { display: flex; gap: 4px; border-right: 0; border-bottom: 1px solid var(--border, #e5e5e5); }
       .settings-tabs button { width: auto; }
       .ai-model-row { flex-direction: column; }
@@ -792,7 +795,8 @@
       border: 1px solid var(--border, #e5e5e5);
       border-radius: 12px;
       width: 480px;
-      max-height: 400px;
+      max-width: 92vw;
+      max-height: min(400px, 92vh);
       display: flex;
       flex-direction: column;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -3553,11 +3557,11 @@
       border: 1px solid var(--border, #e5e5e5);
       border-radius: 16px;
       width: 800px;
-      height: 700px;
+      height: min(700px, 95vh);
       max-width: 95vw;
       max-height: 95vh;
-      min-width: 500px;
-      min-height: 400px;
+      min-width: min(500px, 95vw);
+      min-height: min(400px, 95vh);
       display: flex;
       flex-direction: column;
       box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
@@ -4175,6 +4179,7 @@
         max-height: none;
         left: 8px !important;
         top: 8px !important;
+        transform: none;
         resize: none;
       }
 
