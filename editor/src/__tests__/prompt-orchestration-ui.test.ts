@@ -24,6 +24,12 @@ vi.mock('../settings-ui', () => ({
   showSettings: (...args: unknown[]) => showSettingsMock(...args),
 }));
 
+const exportTextFileMock = vi.fn();
+
+vi.mock('../export-file', () => ({
+  exportTextFile: (...args: unknown[]) => exportTextFileMock(...args),
+}));
+
 import { showPromptOrchestration, showWorkflowManager } from '../prompt-orchestration-ui';
 
 function createView(content: string, from = 0, to = 0) {
@@ -63,6 +69,8 @@ describe('prompt orchestration UI', () => {
     streamAITextMock.mockReset();
     showSettingsMock.mockReset();
     getAIPromptMock.mockClear();
+    exportTextFileMock.mockReset();
+    exportTextFileMock.mockResolvedValue('saved');
     aiConfigured = true;
   });
 
@@ -182,6 +190,63 @@ describe('prompt orchestration UI', () => {
 
     expect(document.querySelectorAll('.prompt-workflow-stage')).toHaveLength(2);
     expect((document.getElementById('prompt-workflow-save') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('keeps export disabled until the workflow is fully generated', () => {
+    let onChunk: ((chunk: string) => void) | undefined;
+    let onDone: (() => void) | undefined;
+    streamAITextMock.mockImplementation((_messages, chunkCallback, doneCallback) => {
+      onChunk = chunkCallback;
+      onDone = doneCallback;
+      return new AbortController();
+    });
+
+    showPromptOrchestration(createView('Build a launch plan'));
+
+    expect((document.getElementById('prompt-workflow-export-md') as HTMLButtonElement).disabled).toBe(true);
+    expect((document.getElementById('prompt-workflow-export-json') as HTMLButtonElement).disabled).toBe(true);
+
+    (document.getElementById('prompt-workflow-regenerate') as HTMLButtonElement).click();
+    onChunk?.('{"title":"Launch workflow","stages":[{"prompts":[{"title":"Research","content":"Research the market."}]}]}');
+
+    expect((document.getElementById('prompt-workflow-export-md') as HTMLButtonElement).disabled).toBe(true);
+
+    onDone?.();
+
+    expect((document.getElementById('prompt-workflow-export-md') as HTMLButtonElement).disabled).toBe(false);
+    expect((document.getElementById('prompt-workflow-export-json') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('exports the generated workflow as Markdown and JSON', async () => {
+    streamAITextMock.mockImplementation((_messages, onChunk, onDone) => {
+      onChunk(JSON.stringify({
+        title: 'Launch workflow',
+        stages: [{ prompts: [{ title: 'Research', content: 'Research the market.' }] }],
+      }));
+      onDone();
+      return new AbortController();
+    });
+
+    showPromptOrchestration(createView('Build a launch plan'));
+    (document.getElementById('prompt-workflow-regenerate') as HTMLButtonElement).click();
+    (document.getElementById('prompt-workflow-export-md') as HTMLButtonElement).click();
+
+    expect(exportTextFileMock).toHaveBeenCalledWith(
+      'launch-workflow.md',
+      expect.stringContaining('# Launch workflow'),
+      'text/markdown',
+    );
+
+    (document.getElementById('prompt-workflow-export-json') as HTMLButtonElement).click();
+
+    expect(exportTextFileMock).toHaveBeenLastCalledWith(
+      'launch-workflow.json',
+      expect.stringContaining('"title": "Launch workflow"'),
+      'application/json',
+    );
+    await vi.waitFor(() => {
+      expect(document.getElementById('toast')?.textContent).toBe('Workflow exported.');
+    });
   });
 
   it('aborts generation when the modal is cancelled', () => {

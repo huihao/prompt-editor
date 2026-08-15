@@ -204,6 +204,28 @@ describe('WKWebViewNativeClient', () => {
     expect(Object.keys(callbackHost)).toEqual(['promptEditorNativeResult']);
   });
 
+  it('saves text files through the native save panel', async () => {
+    const { callbackHost, client, postMessage } = createWKClient();
+
+    const savePromise = client.saveTextFile({ filename: 'plan.md', content: '# Plan' });
+    const message = postMessage.mock.calls[0][0];
+    expect(message).toEqual({
+      action: 'saveFile',
+      filename: 'plan.md',
+      content: '# Plan',
+      callback: expect.any(String),
+    });
+
+    const callback = callbackHost[message.callback] as (result: unknown) => void;
+    callback('true');
+    await expect(savePromise).resolves.toBe(true);
+
+    const cancelPromise = client.saveTextFile({ filename: 'plan.md', content: '# Plan' });
+    const cancelMessage = postMessage.mock.calls[1][0];
+    (callbackHost[cancelMessage.callback] as (result: unknown) => void)(null);
+    await expect(cancelPromise).resolves.toBe(false);
+  });
+
   it('times out callback operations and deletes stale callbacks', async () => {
     vi.useFakeTimers();
     try {

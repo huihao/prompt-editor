@@ -4,6 +4,7 @@ import {
   MAX_WORKFLOW_PROMPTS,
   parseWorkflowResponse,
   stripJsonFence,
+  workflowToJSON,
   workflowToMarkdown,
 } from '../prompt-orchestration';
 
@@ -102,5 +103,39 @@ describe('prompt orchestration', () => {
     expect(workflowToMarkdown(workflow)).toContain('## Stage 2 (parallel)');
     expect(workflowToMarkdown(workflow)).toContain('### Copy');
     expect(workflowToMarkdown(workflow)).toContain('Write launch copy.');
+  });
+
+  it('exports a clean JSON structure without internal ids', () => {
+    const workflow = parseWorkflowResponse(JSON.stringify({
+      title: 'Launch plan',
+      stages: [
+        { prompts: [{ title: 'Research', content: 'Research the market.' }] },
+        { prompts: [
+          { title: 'Copy', content: 'Write launch copy.' },
+          { title: 'Visuals', content: 'Define launch visuals.' },
+        ] },
+      ],
+    }), 'Plan a launch');
+
+    const exported = JSON.parse(workflowToJSON(workflow));
+
+    expect(exported.title).toBe('Launch plan');
+    expect(exported.sourcePrompt).toBe('Plan a launch');
+    expect(Number.isNaN(Date.parse(exported.createdAt))).toBe(false);
+    expect(exported.stages).toEqual([
+      {
+        stage: 1,
+        parallel: false,
+        prompts: [{ title: 'Research', content: 'Research the market.' }],
+      },
+      {
+        stage: 2,
+        parallel: true,
+        prompts: [
+          { title: 'Copy', content: 'Write launch copy.' },
+          { title: 'Visuals', content: 'Define launch visuals.' },
+        ],
+      },
+    ]);
   });
 });

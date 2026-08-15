@@ -147,6 +147,23 @@ export function workflowToMarkdown(workflow: PromptWorkflow): string {
   return `# ${workflow.title}\n\n${sections.join('\n\n')}`;
 }
 
+export function workflowToJSON(workflow: PromptWorkflow): string {
+  const exported = {
+    title: workflow.title,
+    sourcePrompt: workflow.sourcePrompt,
+    createdAt: new Date(workflow.createdAt).toISOString(),
+    stages: workflow.stages.map((stage, stageIndex) => ({
+      stage: stageIndex + 1,
+      parallel: stage.prompts.length > 1,
+      prompts: stage.prompts.map(prompt => ({
+        title: prompt.title,
+        content: prompt.content,
+      })),
+    })),
+  };
+  return JSON.stringify(exported, null, 2);
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }

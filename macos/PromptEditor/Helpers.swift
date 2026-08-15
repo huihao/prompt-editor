@@ -25,6 +25,7 @@ public enum Helpers {
         case scanDirectory(path: String, callback: String)
         case showFolderPicker(callback: String)
         case readFile(path: String, callback: String)
+        case saveFile(filename: String, content: String, callback: String)
         case getRunningAgents(callback: String)
         case detectPromptMemoryDirectories(callback: String)
         case choosePromptMemoryDirectory(callback: String)
@@ -76,6 +77,11 @@ public enum Helpers {
             guard let path = dict["path"] as? String else { return nil }
             let callback = dict["callback"] as? String ?? ""
             return .readFile(path: path, callback: callback)
+        case "saveFile":
+            guard let filename = dict["filename"] as? String,
+                  let content = dict["content"] as? String else { return nil }
+            let callback = dict["callback"] as? String ?? ""
+            return .saveFile(filename: filename, content: content, callback: callback)
         case "getRunningAgents":
             let callback = dict["callback"] as? String ?? ""
             return .getRunningAgents(callback: callback)

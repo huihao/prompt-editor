@@ -168,6 +168,16 @@ export class WKWebViewNativeClient implements NativeClient {
     );
   }
 
+  saveTextFile(request: { filename: string; content: string }): Promise<boolean> {
+    return this.requestWithGlobalCallback(
+      'saveFile',
+      { filename: request.filename, content: request.content },
+      'file.save',
+      (result) => result === true || result === 'true',
+      120000,
+    );
+  }
+
   listRunningAgents(): Promise<DetectedAgent[]> {
     return this.requestWithGlobalCallback(
       'getRunningAgents',

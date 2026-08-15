@@ -196,6 +196,8 @@ public class MainWindow: NSObject, WKScriptMessageHandler, NSWindowDelegate, WKN
             handleShowFolderPicker(callback: callback)
         case .readFile(let path, let callback):
             handleReadFile(path: path, callback: callback)
+        case .saveFile(let filename, let content, let callback):
+            handleSaveFile(filename: filename, content: content, callback: callback)
         case .getRunningAgents(let callback):
             handleGetRunningAgents(callback: callback)
         case .detectPromptMemoryDirectories(let callback):
@@ -285,6 +287,26 @@ public class MainWindow: NSObject, WKScriptMessageHandler, NSWindowDelegate, WKN
         
         let escaped = Helpers.escapeForJS(content)
         callJS("window['\(callback)']('\(escaped)')")
+    }
+    
+    private func handleSaveFile(filename: String, content: String, callback: String) {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = filename
+        panel.message = "Choose where to save the exported file"
+        
+        panel.beginSheetModal(for: window) { [weak self] result in
+            guard result == .OK, let url = panel.url else {
+                self?.callJS("window['\(callback)'](null)")
+                return
+            }
+            do {
+                try content.write(to: url, atomically: true, encoding: .utf8)
+                self?.callJS("window['\(callback)']('true')")
+            } catch {
+                let message = Helpers.escapeForJS(error.localizedDescription)
+                self?.callJS("window['\(callback)'](null, '\(message)')")
+            }
+        }
     }
     
     private func handleGetRunningAgents(callback: String) {

@@ -8,10 +8,12 @@ import {
   extractCompleteWorkflowStages,
   normalizeWorkflow,
   parseWorkflowResponse,
+  workflowToJSON,
   workflowToMarkdown,
   type PromptWorkflow,
   type WorkflowPrompt,
 } from './prompt-orchestration';
+import { exportTextFile } from './export-file';
 import { promptWorkflowStore } from './prompt-workflow-store';
 import { showSettings } from './settings-ui';
 
@@ -135,6 +137,8 @@ function openWorkflowEditor(view: EditorView, sourcePrompt: string, initial?: Pr
         <button id="prompt-workflow-regenerate" class="ai-btn-secondary" data-action="regenerate">Generate workflow</button>
         <span id="prompt-workflow-usage" class="ai-usage-line" hidden></span>
         <span class="prompt-workflow-footer-spacer"></span>
+        <button id="prompt-workflow-export-md" class="ai-btn-secondary" data-action="export-md" disabled>Export MD</button>
+        <button id="prompt-workflow-export-json" class="ai-btn-secondary" data-action="export-json" disabled>Export JSON</button>
         <button id="prompt-workflow-cancel" class="ai-btn-secondary" data-action="close">Cancel</button>
         <button id="prompt-workflow-save" class="ai-btn-primary" data-action="save" disabled>Save workflow</button>
       </footer>
@@ -153,8 +157,17 @@ function openWorkflowEditor(view: EditorView, sourcePrompt: string, initial?: Pr
   const stagesEl = overlay.querySelector('.prompt-workflow-stages') as HTMLElement;
   const titleInput = overlay.querySelector('#prompt-workflow-title') as HTMLInputElement;
   const saveButton = overlay.querySelector('#prompt-workflow-save') as HTMLButtonElement;
+  const exportMdButton = overlay.querySelector('#prompt-workflow-export-md') as HTMLButtonElement;
+  const exportJsonButton = overlay.querySelector('#prompt-workflow-export-json') as HTMLButtonElement;
   const regenerateButton = overlay.querySelector('#prompt-workflow-regenerate') as HTMLButtonElement;
   const usageEl = overlay.querySelector('#prompt-workflow-usage') as HTMLElement;
+
+  const syncActionButtons = () => {
+    const disabled = !workflow || !generationComplete || !hasValidPrompts(workflow);
+    saveButton.disabled = disabled;
+    exportMdButton.disabled = disabled;
+    exportJsonButton.disabled = disabled;
+  };
 
   const render = () => {
     if (!workflow) return;
@@ -176,9 +189,8 @@ function openWorkflowEditor(view: EditorView, sourcePrompt: string, initial?: Pr
         </div>
         <button class="prompt-workflow-add-prompt" data-action="add-prompt">+ Add parallel prompt</button>
       </section>`).join('<div class="prompt-workflow-sequence-arrow" aria-hidden="true">↓</div>');
-    saveButton.disabled = !generationComplete || countPrompts(workflow) === 0;
+    syncActionButtons();
   };
-
   const startGeneration = () => {
     abortController?.abort();
     accumulated = '';
@@ -192,6 +204,8 @@ function openWorkflowEditor(view: EditorView, sourcePrompt: string, initial?: Pr
     status.className = 'prompt-workflow-status is-loading';
     status.textContent = 'Generating workflow...';
     saveButton.disabled = true;
+    exportMdButton.disabled = true;
+    exportJsonButton.disabled = true;
     regenerateButton.disabled = true;
     regenerateButton.textContent = 'Regenerate';
 
@@ -259,7 +273,7 @@ function openWorkflowEditor(view: EditorView, sourcePrompt: string, initial?: Pr
     if (!prompt) return;
     if (target.matches('[data-field="title"]')) prompt.title = target.value;
     if (target.matches('[data-field="content"]')) prompt.content = target.value;
-    saveButton.disabled = !generationComplete || !hasValidPrompts(workflow!);
+    syncActionButtons();
   });
   overlay.addEventListener('click', event => {
     if (event.target === overlay) return closeOverlay(overlay, view, abortController);
@@ -268,6 +282,9 @@ function openWorkflowEditor(view: EditorView, sourcePrompt: string, initial?: Pr
     const action = button.dataset.action;
     if (action === 'close') return closeOverlay(overlay, view, abortController);
     if (action === 'regenerate') return startGeneration();
+    if ((action === 'export-md' || action === 'export-json') && workflow) {
+      return void exportWorkflow(workflow, action === 'export-md' ? 'md' : 'json');
+    }
     if (action === 'save' && workflow && hasValidPrompts(workflow)) {
       workflow.title = titleInput.value.trim() || 'Untitled workflow';
       trimWorkflow(workflow);
@@ -281,6 +298,26 @@ function openWorkflowEditor(view: EditorView, sourcePrompt: string, initial?: Pr
   });
   bindDragAndDrop(stagesEl, () => workflow, render);
   bindOverlayKeyboard(overlay, () => closeOverlay(overlay, view, abortController));
+}
+
+async function exportWorkflow(workflow: PromptWorkflow, format: 'md' | 'json'): Promise<void> {
+  const extension = format === 'md' ? 'md' : 'json';
+  const filename = `${slugifyFilename(workflow.title)}.${extension}`;
+  const content = format === 'md' ? workflowToMarkdown(workflow) : workflowToJSON(workflow);
+  const mimeType = format === 'md' ? 'text/markdown' : 'application/json';
+
+  try {
+    const result = await exportTextFile(filename, content, mimeType);
+    if (result === 'saved') showToast('Workflow exported.');
+    else if (result === 'downloaded') showToast('Workflow downloaded.');
+  } catch {
+    showToast('Failed to export workflow.');
+  }
+}
+
+function slugifyFilename(title: string): string {
+  const slug = title.trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '');
+  return slug || 'workflow';
 }
 
 function mutateWorkflow(workflow: PromptWorkflow, button: HTMLButtonElement, action: string): void {

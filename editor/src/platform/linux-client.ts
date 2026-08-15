@@ -52,6 +52,10 @@ export class LinuxNativeClient implements NativeClient {
     return Promise.reject(unsupported('file.read'));
   }
 
+  saveTextFile(_request: { filename: string; content: string }): Promise<boolean> {
+    return Promise.reject(unsupported('file.save'));
+  }
+
   listRunningAgents(): Promise<DetectedAgent[]> {
     return Promise.reject(unsupported('agents.list'));
   }

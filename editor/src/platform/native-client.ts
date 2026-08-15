@@ -9,6 +9,7 @@ export const allCapabilities = [
   'app.restart',
   'directory.pick',
   'file.read',
+  'file.save',
   'agents.list',
 ] as const;
 
@@ -75,5 +76,6 @@ export interface NativeClient {
   restartApp(): Promise<void>;
   pickDirectory(): Promise<string | null>;
   readFile(path: string): Promise<string>;
+  saveTextFile(request: { filename: string; content: string }): Promise<boolean>;
   listRunningAgents(): Promise<DetectedAgent[]>;
 }
