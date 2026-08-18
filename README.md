@@ -29,7 +29,7 @@ Launch Prompt Editor from Applications. Use `Command+Shift+P` to show or hide th
 
 ## Develop
 
-Requirements: Rust 1.85+, Node.js 20+ with Corepack, and GNU Make. macOS builds also require Xcode Command Line Tools and both Rust targets:
+Requirements: Rust 1.85+, Node.js 24+ with Corepack, and GNU Make. macOS builds also require Xcode Command Line Tools and both Rust targets:
 
 ```bash
 rustup target add aarch64-apple-darwin x86_64-apple-darwin

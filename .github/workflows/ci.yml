@@ -19,7 +19,7 @@ jobs:
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
       - run: corepack enable
       - run: corepack pnpm install --dir editor --frozen-lockfile
       - run: make lint
@@ -42,7 +42,7 @@ jobs:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
       - run: corepack enable
       - run: corepack pnpm install --dir editor --frozen-lockfile
       - run: make test

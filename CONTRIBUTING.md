@@ -8,7 +8,7 @@ Search existing issues and the [feature support matrix](docs/feature-support-mat
 
 ## Development Setup
 
-The full macOS build requires macOS 12 or newer, Xcode Command Line Tools, Rust 1.85 or newer, Node.js 20 or newer with Corepack, and GNU Make. Universal builds also require the `aarch64-apple-darwin` and `x86_64-apple-darwin` Rust targets.
+The full macOS build requires macOS 12 or newer, Xcode Command Line Tools, Rust 1.85 or newer, Node.js 24 or newer with Corepack, and GNU Make. Universal builds also require the `aarch64-apple-darwin` and `x86_64-apple-darwin` Rust targets.
 
 ```bash
 corepack pnpm --dir editor install --frozen-lockfile

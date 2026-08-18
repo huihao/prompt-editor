@@ -18,7 +18,7 @@ The `.tar.gz` contains the same Universal 2 app and is intended for automation. 
 
 ## Build from Source
 
-Install Xcode Command Line Tools, Rust 1.85 or newer, Node.js 20 or newer, and GNU Make:
+Install Xcode Command Line Tools, Rust 1.85 or newer, Node.js 24 or newer, and GNU Make:
 
 ```bash
 xcode-select --install
