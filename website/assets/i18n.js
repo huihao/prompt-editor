@@ -8,6 +8,10 @@
       "nav.download": "下载",
       "nav.github": "GitHub",
 
+      "meta.title.index": "Prompt Editor — 为 CLI 而生的原生 Prompt 编辑器",
+      "meta.title.features": "功能 — Prompt Editor",
+      "meta.title.download": "下载 — Prompt Editor",
+
       "hero.eyebrow": "Prompt Editor",
       "hero.title": "为 CLI 而生的\n原生 Prompt 编辑器。",
       "hero.sub": "一个轻巧的多平台原生编辑器，为 Claude Code、Codex、Kimi 等命令行 AI 工具带来舒适的提示词编辑体验。全局快捷键呼出，写完即走。",
@@ -69,9 +73,8 @@
 
       "download.title": "下载",
       "download.sub": "选择你的平台，或从源码构建。",
-      "download.coming": "macOS 开发版（未签名）已可下载，首次打开请右键 → 打开。Windows 与 Linux 版本仍在实验阶段。",
+      "download.coming": "macOS 开发版（未签名）已可下载，首次打开请右键 → 打开。",
       "download.macos.cta": "下载 macOS 开发版 >",
-      "download.platform.experimental": "实验性，暂未提供预编译包",
       "download.build.title": "从源码构建",
       "download.build.sub": "需要 Rust 1.85+、Node.js 24+（pnpm）与 GNU Make；macOS 另需 Xcode 命令行工具与 Swift 5.6+。",
       "download.requirements": "环境要求",
@@ -89,6 +92,10 @@
       "nav.features": "Features",
       "nav.download": "Download",
       "nav.github": "GitHub",
+
+      "meta.title.index": "Prompt Editor — A Native Prompt Editor for the CLI",
+      "meta.title.features": "Features — Prompt Editor",
+      "meta.title.download": "Download — Prompt Editor",
 
       "hero.eyebrow": "Prompt Editor",
       "hero.title": "A native prompt editor,\nborn for the CLI.",
@@ -151,9 +158,8 @@
 
       "download.title": "Download",
       "download.sub": "Pick your platform, or build from source.",
-      "download.coming": "Unsigned macOS dev builds are available now — right-click → Open on first launch. Windows and Linux builds remain experimental.",
+      "download.coming": "Unsigned macOS dev builds are available now — right-click → Open on first launch.",
       "download.macos.cta": "Download macOS dev build >",
-      "download.platform.experimental": "Experimental, no prebuilt binaries yet",
       "download.build.title": "Build from Source",
       "download.build.sub": "Requires Rust 1.85+, Node.js 24+ (pnpm), and GNU Make; macOS also needs Xcode Command Line Tools and Swift 5.6+.",
       "download.requirements": "Requirements",
@@ -177,6 +183,9 @@
   function apply(lang) {
     const d = dict[lang];
     document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+    const page = document.body && document.body.dataset.page;
+    const title = page && d["meta.title." + page];
+    if (title) document.title = title;
     document.querySelectorAll("[data-i18n]").forEach((el) => {
       const key = el.getAttribute("data-i18n");
       if (d[key] !== undefined) el.textContent = d[key];

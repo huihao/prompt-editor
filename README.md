@@ -1,5 +1,7 @@
 # Prompt Editor
 
+English | [简体中文](README.zh-CN.md)
+
 Prompt Editor is a native macOS prompt workspace for coding agents and terminal tools. It combines a CodeMirror Markdown editor, reusable snippets and templates, prompt history, agent-history scanning, and terminal-aware send actions.
 
 macOS 12 or newer is the supported platform. Windows and Linux ports remain experimental: their source is retained, but they are not part of the signed release pipeline.
