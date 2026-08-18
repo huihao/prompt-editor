@@ -25,7 +25,7 @@ The app asks for Accessibility permission only when terminal paste automation ne
 
 ## Use
 
-Launch Prompt Editor from Applications. Use `Option+Space` to show or hide the window, `Command+Enter` to send the current prompt, and `Escape` to hide it. Sending to another app may require Accessibility permission under **System Settings > Privacy & Security**.
+Launch Prompt Editor from Applications. Use `Command+Shift+P` to show or hide the window, and `Escape` to hide it. Copy the prompt to the clipboard or paste it back to the last input position, then paste it into your CLI tool. Pasting into another app may require Accessibility permission under **System Settings > Privacy & Security**.
 
 ## Develop
 
