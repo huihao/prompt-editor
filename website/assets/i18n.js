@@ -69,7 +69,9 @@
 
       "download.title": "下载",
       "download.sub": "选择你的平台，或从源码构建。",
-      "download.coming": "预编译版本即将发布",
+      "download.coming": "macOS 开发版（未签名）已可下载，首次打开请右键 → 打开。Windows 与 Linux 版本仍在实验阶段。",
+      "download.macos.cta": "下载 macOS 开发版 >",
+      "download.platform.experimental": "实验性，暂未提供预编译包",
       "download.build.title": "从源码构建",
       "download.build.sub": "需要 Rust 1.85+、Node.js 24+（pnpm）与 GNU Make；macOS 另需 Xcode 命令行工具与 Swift 5.6+。",
       "download.requirements": "环境要求",
@@ -149,7 +151,9 @@
 
       "download.title": "Download",
       "download.sub": "Pick your platform, or build from source.",
-      "download.coming": "Prebuilt binaries coming soon",
+      "download.coming": "Unsigned macOS dev builds are available now — right-click → Open on first launch. Windows and Linux builds remain experimental.",
+      "download.macos.cta": "Download macOS dev build >",
+      "download.platform.experimental": "Experimental, no prebuilt binaries yet",
       "download.build.title": "Build from Source",
       "download.build.sub": "Requires Rust 1.85+, Node.js 24+ (pnpm), and GNU Make; macOS also needs Xcode Command Line Tools and Swift 5.6+.",
       "download.requirements": "Requirements",
