@@ -1,0 +1,56 @@
+name: Release (Unsigned)
+
+# Manual, unsigned macOS development build for testing.
+# Official releases use release.yml (push a v* tag), which requires
+# signing and notarization secrets and never falls back to unsigned.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  macos-unsigned:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: corepack enable
+      - run: corepack pnpm install --dir editor --frozen-lockfile
+      - name: Run tests
+        run: make test
+      - name: Build and package (unsigned)
+        id: pkg
+        run: |
+          VERSION=$(node -p "require('./editor/package.json').version")
+          ./scripts/check-version.sh "$VERSION"
+          ./scripts/package-macos.sh "$VERSION"
+          TAG="dev-${VERSION}-$(date +%Y%m%d).${GITHUB_RUN_NUMBER}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - name: Publish GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.pkg.outputs.tag }}
+        run: |
+          cat > notes.md <<'EOF'
+          Unsigned development build — not signed or notarized. For testing only.
+
+          macOS will block the first launch. Either right-click the app and choose Open, or run:
+
+              xattr -dr com.apple.quarantine /Applications/PromptEditor.app
+          EOF
+          gh release create "$TAG" build/release/* \
+            --prerelease \
+            --notes-file notes.md \
+            --title "Prompt Editor $TAG (unsigned dev build)"
+      - name: Report artifacts
+        if: success()
+        run: |
+          echo "## Unsigned dev build" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://github.com/${GITHUB_REPOSITORY}/releases/tag/${{ steps.pkg.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"

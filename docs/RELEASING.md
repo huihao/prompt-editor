@@ -42,6 +42,10 @@ Do not commit certificates, passwords, API keys, keychains, or notarization prof
 
 The workflow deliberately fails when signing or notarization secrets are missing. Official releases must not silently fall back to unsigned artifacts.
 
+## Unsigned Dev Builds
+
+For testing before Apple Developer credentials are available, the **Release (Unsigned)** workflow (`.github/workflows/release-unsigned.yml`) builds and packages macOS artifacts without signing or notarization. Trigger it manually from the Actions tab; it publishes a prerelease tagged `dev-<version>-<date>.<run>` with the DMG, tar.gz, and checksums. These builds are for testing only — users must right-click → Open or run `xattr -dr com.apple.quarantine` on first launch.
+
 ## Rollback
 
 Do not move an existing tag. If artifacts are invalid, mark the GitHub Release as a draft or delete the release assets, document the incident, and publish a new patch version. Revert the faulty code with `git revert`, run the full checklist, and tag the corrected commit. Users can reinstall the last known-good signed release; local data formats must remain backward compatible or include a tested migration.
