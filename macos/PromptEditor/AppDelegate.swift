@@ -146,6 +146,9 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
             previousApp = frontmostApp
         }
 
+        // Capture the frontmost app's selected text before we steal focus
+        let selectedText = captureSelectedText()
+
         mainWindow.window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
 
@@ -168,6 +171,36 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         mainWindow.focusEditor()
+
+        // Replace editor content with the captured selection; the editor's
+        // setContent archives the previous content to history automatically
+        if let text = selectedText {
+            mainWindow.setContent(text)
+        }
+    }
+
+    /// Read the selected text from the currently focused UI element of the
+    /// frontmost app via the Accessibility API. Must be called before
+    /// activating our own app. Returns nil when there is no usable selection.
+    private func captureSelectedText() -> String? {
+        guard AXIsProcessTrusted() else { return nil }
+
+        let systemWide = AXUIElementCreateSystemWide()
+        var focusedRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            systemWide,
+            kAXFocusedUIElementAttribute as CFString,
+            &focusedRef
+        ) == .success, let focused = focusedRef else { return nil }
+
+        var selectedRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            focused as! AXUIElement,
+            kAXSelectedTextAttribute as CFString,
+            &selectedRef
+        ) == .success, let text = selectedRef as? String else { return nil }
+
+        return text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : text
     }
 
     public func hideWindow() {
