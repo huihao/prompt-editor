@@ -367,6 +367,7 @@ const accessibilityBanner = document.getElementById('accessibility-permission-ba
 const accessibilityMessage = document.getElementById('accessibility-permission-message');
 const openAccessibilitySettingsButton = document.getElementById('btn-open-accessibility-settings');
 const restartAfterAccessibilityButton = document.getElementById('btn-restart-after-accessibility');
+const resetAccessibilityButton = document.getElementById('btn-reset-accessibility');
 
 (window as any).promptEditorPermissionStatus = (trusted: boolean, requiresRestart: boolean) => {
   if (!accessibilityBanner || !accessibilityMessage) return;
@@ -375,15 +376,21 @@ const restartAfterAccessibilityButton = document.getElementById('btn-restart-aft
     accessibilityMessage.textContent = 'Accessibility permission is enabled. Restart Prompt Editor to apply it.';
     if (restartAfterAccessibilityButton) restartAfterAccessibilityButton.hidden = false;
     if (openAccessibilitySettingsButton) openAccessibilitySettingsButton.hidden = true;
+    if (resetAccessibilityButton) resetAccessibilityButton.hidden = true;
   } else if (!trusted) {
     accessibilityMessage.textContent = 'Accessibility permission is required to paste into the previous app.';
     if (restartAfterAccessibilityButton) restartAfterAccessibilityButton.hidden = true;
     if (openAccessibilitySettingsButton) openAccessibilitySettingsButton.hidden = false;
+    if (resetAccessibilityButton) resetAccessibilityButton.hidden = false;
   }
 };
 
 openAccessibilitySettingsButton?.addEventListener('click', () => bridge.openAccessibilitySettings());
 restartAfterAccessibilityButton?.addEventListener('click', () => bridge.restartApp());
+resetAccessibilityButton?.addEventListener('click', () => {
+  bridge.resetAccessibilityPermission();
+  showToast('Permission reset. Enable it again in Security Settings');
+});
 
 // Toast notification
 function showToast(message: string) {

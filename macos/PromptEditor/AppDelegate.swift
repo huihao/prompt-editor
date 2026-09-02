@@ -290,6 +290,31 @@ public class AppDelegate: NSObject, NSApplicationDelegate {
         NSWorkspace.shared.open(settingsURL)
     }
 
+    /// Reset this app's Accessibility grant via tccutil, then re-register and
+    /// reopen Security Settings. Needed for unsigned/ad-hoc builds, whose TCC
+    /// grant is bound to the binary's cdhash and goes stale after each update.
+    public func resetAccessibilityPermission() {
+        let bundleId = Bundle.main.bundleIdentifier ?? "com.prompt-editor.app"
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+        process.arguments = ["reset", "Accessibility", bundleId]
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+        do {
+            try process.run()
+            process.waitUntilExit()
+            NSLog("PromptEditor: tccutil reset Accessibility exited with \(process.terminationStatus)")
+        } catch {
+            NSLog("PromptEditor: Failed to run tccutil: \(error.localizedDescription)")
+        }
+
+        // Re-register in the Accessibility list so the user can re-grant right away.
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        _ = AXIsProcessTrustedWithOptions(options)
+        notifyAccessibilityPermission(requiresRestart: false)
+        openAccessibilitySettings()
+    }
+
     private func requestAccessibilityConsent() {
         guard Helpers.shouldRequestAccessibilityConsent(
             isTrusted: AXIsProcessTrusted(),

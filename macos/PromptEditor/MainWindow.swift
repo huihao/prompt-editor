@@ -181,6 +181,9 @@ public class MainWindow: NSObject, WKScriptMessageHandler, NSWindowDelegate, WKN
         case .openAccessibilitySettings:
             guard let delegate = NSApp.delegate as? AppDelegate else { return }
             delegate.openAccessibilitySettings()
+        case .resetAccessibilityPermission:
+            guard let delegate = NSApp.delegate as? AppDelegate else { return }
+            delegate.resetAccessibilityPermission()
         case .restartApp:
             guard let delegate = NSApp.delegate as? AppDelegate else { return }
             delegate.restartApp()

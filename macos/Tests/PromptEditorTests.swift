@@ -115,6 +115,12 @@ final class HelpersTests: XCTestCase {
         XCTAssertEqual(action, .openAccessibilitySettings)
     }
 
+    func testParseBridgeMessage_resetAccessibilityPermission() {
+        let body: [String: Any] = ["action": "resetAccessibilityPermission"]
+        let action = Helpers.parseBridgeMessage(body)
+        XCTAssertEqual(action, .resetAccessibilityPermission)
+    }
+
     func testParseBridgeMessage_restartApp() {
         let body: [String: Any] = ["action": "restartApp"]
         let action = Helpers.parseBridgeMessage(body)

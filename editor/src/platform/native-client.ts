@@ -6,6 +6,7 @@ export const allCapabilities = [
   'content.pastePrevious',
   'window.hide',
   'accessibility.openSettings',
+  'accessibility.reset',
   'app.restart',
   'directory.pick',
   'file.read',
@@ -73,6 +74,7 @@ export interface NativeClient {
   pasteToPrevious(content: string): Promise<NativeOperationResult>;
   hideWindow(): Promise<void>;
   openAccessibilitySettings(): Promise<void>;
+  resetAccessibilityPermission(): Promise<void>;
   restartApp(): Promise<void>;
   pickDirectory(): Promise<string | null>;
   readFile(path: string): Promise<string>;

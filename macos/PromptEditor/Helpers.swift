@@ -19,6 +19,7 @@ public enum Helpers {
         case copy(content: String)
         case pasteToPrevious(content: String, callback: String?)
         case openAccessibilitySettings
+        case resetAccessibilityPermission
         case restartApp
         case hide
         case showHistory
@@ -60,6 +61,8 @@ public enum Helpers {
             return .pasteToPrevious(content: content, callback: dict["callback"] as? String)
         case "openAccessibilitySettings":
             return .openAccessibilitySettings
+        case "resetAccessibilityPermission":
+            return .resetAccessibilityPermission
         case "restartApp":
             return .restartApp
         case "hide":

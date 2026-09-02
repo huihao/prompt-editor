@@ -57,6 +57,10 @@ export class BrowserNativeClient implements NativeClient {
     return Promise.reject(unsupported('accessibility.openSettings'));
   }
 
+  resetAccessibilityPermission(): Promise<void> {
+    return Promise.reject(unsupported('accessibility.reset'));
+  }
+
   restartApp(): Promise<void> {
     return Promise.reject(unsupported('app.restart'));
   }

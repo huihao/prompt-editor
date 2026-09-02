@@ -71,6 +71,7 @@ interface NativeBridge {
   copyToClipboard: (content: string) => Promise<boolean>;
   pasteToPrevious: () => Promise<{ success: boolean; message: string }>;
   openAccessibilitySettings: () => void;
+  resetAccessibilityPermission: () => void;
   restartApp: () => void;
   hide: () => void;
   clear: () => void;
@@ -317,6 +318,12 @@ export const bridge: NativeBridge = {
   openAccessibilitySettings() {
     void nativeClient().openAccessibilitySettings().catch((error) => {
       logNativeError('Failed to open accessibility settings', error);
+    });
+  },
+
+  resetAccessibilityPermission() {
+    void nativeClient().resetAccessibilityPermission().catch((error) => {
+      logNativeError('Failed to reset accessibility permission', error);
     });
   },
 

@@ -130,6 +130,10 @@ export class WKWebViewNativeClient implements NativeClient {
     this.post({ action: 'openAccessibilitySettings' }, 'accessibility.openSettings');
   }
 
+  async resetAccessibilityPermission(): Promise<void> {
+    this.post({ action: 'resetAccessibilityPermission' }, 'accessibility.reset');
+  }
+
   async restartApp(): Promise<void> {
     this.post({ action: 'restartApp' }, 'app.restart');
   }
